@@ -1,4 +1,4 @@
--- Bill's Box
+-- Gen1BillsBox
 --
 -- Gen 1's storage screen is a menu of four verbs over a list of twenty
 -- names.  This replaces it -- not adds to it -- with the thing the list was

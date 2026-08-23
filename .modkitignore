@@ -1,2 +1,2 @@
 # Exact relative paths; dot-directories (.git, .github) are skipped already.
-tests/bills_box_test.lua
+tests/gen1billsbox_test.lua

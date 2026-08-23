@@ -1,4 +1,4 @@
--- Bill's Box: the storage screen itself.
+-- Gen1BillsBox: the storage screen itself.
 --
 -- Returns a factory: factory(mod) -> { new = function(game) ... end }, which
 -- main.lua installs over the builtin "BoxMenu" id.
@@ -555,7 +555,7 @@ return function(mod)
     end
     game.stack:push(ListMenu.new(game, Strings("CHANGE BOX"), items, {
       noSound = true,
-      kind = "bills_box_change",
+      kind = "gen1billsbox_change",
       onChoose = function(item, list)
         game.save.currentBox = item.value
         list:close()

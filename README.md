@@ -1,4 +1,4 @@
-# Bill's Box
+# Gen1BillsBox
 
 A Gen 3-style storage screen for
 [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp) that **replaces**
@@ -19,7 +19,7 @@ the party.
 
 ## Install
 
-Download `bills_box-<version>.zip` from [Releases](../../releases), then in
+Download `Gen1BillsBox-<version>.zip` from [Releases](../../releases), then in
 the game:
 
 **Launcher → MODS → Import mod .zip**, or in a running game
@@ -164,12 +164,12 @@ though running both is two storage screens over one save.
 
 ## Development
 
-From a Gen1Recomp checkout with this mod at `mods/bills_box`:
+From a Gen1Recomp checkout with this mod at `mods/Gen1BillsBox`:
 
 ```sh
-python3 tools/modkit.py validate mods/bills_box
-python3 tools/modkit.py lint mods/bills_box
-luajit mods/bills_box/tests/bills_box_test.lua
+python3 tools/modkit.py validate mods/Gen1BillsBox
+python3 tools/modkit.py lint mods/Gen1BillsBox
+luajit mods/Gen1BillsBox/tests/gen1billsbox_test.lua
 ```
 
 The suite runs against the engine's ROM-free fixture dataset, so it needs no

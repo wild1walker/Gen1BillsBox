@@ -1,6 +1,6 @@
 {
-  "id": "bills_box",
-  "name": "Bill's Box",
+  "id": "Gen1BillsBox",
+  "name": "Gen1BillsBox",
   "version": "1.0.0",
   "api": 2,
   "games": ["gen1"],

@@ -1,4 +1,4 @@
--- Standalone: luajit mods/bills_box/tests/bills_box_test.lua
+-- Standalone: luajit mods/Gen1BillsBox/tests/gen1billsbox_test.lua
 --
 -- Loads the mod through the headless SDK harness against the ROM-free
 -- fixture dataset and asserts its stated effect: BILL'S PC is renamed and
@@ -6,8 +6,8 @@
 -- protect a save hold -- the party is never emptied, a box never passes
 -- twenty, and a carried POKeMON is never dropped out of the save.
 --
--- Run it from a Gen1Recomp checkout with this mod at mods/bills_box, or set
--- BILLS_BOX_DIR to wherever it lives.
+-- Run it from a Gen1Recomp checkout with this mod at mods/Gen1BillsBox, or set
+-- GEN1BILLSBOX_DIR to wherever it lives.
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
@@ -15,7 +15,7 @@ local Runtime = require("src.mods.Runtime")
 local Boxes = require("src.pokemon.Boxes")
 local Stats = require("src.pokemon.Stats")
 
-local DIR = os.getenv("BILLS_BOX_DIR") or "mods/bills_box"
+local DIR = os.getenv("GEN1BILLSBOX_DIR") or "mods/Gen1BillsBox"
 local Data = T.fixtures.fresh()
 local run = T.sdk.loadMod(DIR, { data = Data })
 T.eq(#run.errors, 0, "loads clean (" .. tostring(run.errors[1]) .. ")")
@@ -542,4 +542,4 @@ do
 end
 
 run.release()
-T.finish("bills_box")
+T.finish("Gen1BillsBox")
