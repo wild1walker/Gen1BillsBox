@@ -15,6 +15,7 @@ return {
       "STATS and RELEASE moved to START, because A became pick up and put down",
     },
     added = {
+      "one line after a catch that overflowed, naming the box that was full and the box the POKeMON actually went to -- only when those differ, so an ordinary catch stays as quiet as it was",
       "a palette zone per POKeMON, in the grid and in the party, so each one wears its own species colours -- a box's worth at once, where the Game Boy could show four",
       "a cursor in the band above a POKeMON's head pointing down at it, and the same arrow hollow while that POKeMON is in your hand; the party pane keeps the party menu's own sideways filled/hollow pair",
       "the party and the open box are visible together on one 160x144 screen: six party slots down the left, the box as a 5x4 grid of twenty",
@@ -27,6 +28,8 @@ return {
       "PLACE CRY (on by default), HOLD TO MOVE (on by default) and OPEN ON, in the mod manager",
     },
     known = {
+      "the overflow itself is the ENGINE's, not this mod's: src/pokemon/Boxes.lua's deposit already walks from the open box forward through all twelve and wraps, and a catch only fails once all 240 places are taken; what this mod adds is the line that says which box it landed in",
+      "the box number cannot go into the transfer line itself -- that text is ROM-extracted and filled from the caller's arguments, and the battle passes exactly one, so a second slot fails RomText's arity check and drops the line back to the engine's English",
       "every pixel this mod draws itself is shade 3, which is {0,0,0} in the grey ramp and in all 151 species palettes alike -- that is what keeps the chrome black under a zone laid over it; shade 1 is the trap, since MEWMON paints it {239,156,107} and a grey grid line under MEWMON is an orange grid line",
       "cells are 24x24 and party rows 16 tall because an SGB palette zone is addressed in TILES: a cell three and a half tiles wide cannot carry one at all, and carrying one per cell is the whole point",
       "the COLORS display mode still decides what a species palette contains -- ADVANCED resolves the per-species pokered-gbc colours, CLASSIC and the OG modes replace every palette on screen; this mod asks for the zone and the mode answers",

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.2
+
+- **A POKéMON caught into a full box now says where it went.** The overflow
+  itself was never missing: `src/pokemon/Boxes.lua`'s `deposit` already walks
+  from the open box forward through all twelve, wrapping, and drops the
+  POKéMON in the first one with room — the catch only fails once all 240
+  places are taken. What it never did was *say* so. The line it prints is the
+  cart's own, and the cart never needed to name a box because the POKéMON
+  could only ever be in the one you had open. One extra line now names the box
+  that was full and the box it went to, and only when those differ — an
+  ordinary catch into the open box stays exactly as quiet as it was.
+- New option **FULL BOX NOTE** (on) turns that line off.
+
 ## 1.0.1
 
 Reported against 1.0.0: with COLORS on ADVANCED every POKéMON in the box came

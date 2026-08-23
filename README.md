@@ -133,6 +133,38 @@ In the mod manager's row for this mod:
 | **PLACE CRY** | on | The cry of whichever POKéMON just landed in a slot. The vanilla PC plays one on every withdraw and deposit; this is the same sound at the same moment. |
 | **HOLD TO MOVE** | on | Hold a direction to keep moving, at the cadence the engine's own list menus use. |
 | **OPEN ON** | BOX | Which side the cursor starts on. |
+| **FULL BOX NOTE** | on | One line after a catch that overflowed, naming the box it actually went to. See below. |
+
+## Catching into a full box
+
+It already works, and it is not this mod's doing: the engine's own
+`Boxes.deposit` walks from the box you have open forward through all twelve,
+wrapping, and drops the POKéMON in the first one with room. A catch only fails
+once all 240 places are taken — that is when you get *"But every BOX is
+full!"*. The cart refused the catch the moment the open box was full; this
+engine deliberately does not.
+
+What it never did was *tell* you. The line it prints is the cart's own —
+*"MON was transferred to BILL's BOX!"* — and the cart never needed to name a
+box, because there the POKéMON could only ever be in the one you had open.
+Here it can be in any of twelve, so a POKéMON caught into a full box was
+findable only by opening the PC and walking the boxes.
+
+So this mod adds one line after it:
+
+```
+BOX 1 was full!
+Stored in BOX 7.
+```
+
+Only when the two differ. An ordinary catch into the box you have open is
+exactly as quiet as it always was.
+
+The number cannot go into the transfer line itself, for what it's worth: that
+text is ROM-extracted and filled from the caller's arguments, and the battle
+passes exactly one — the POKéMON's name — so a second slot fails the arity
+check and drops the whole line back to the engine's English (which says "PC"
+again).
 
 ## What it keeps from the vanilla PC
 

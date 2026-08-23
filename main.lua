@@ -39,7 +39,18 @@ return function(mod)
         { "BOX", "box" },
         { "PARTY", "party" },
       } },
+    -- See "a catch that overflows says so" below.  On by default because it
+    -- only ever speaks when a POKeMON went somewhere other than the box you
+    -- think you are filling, which is the one time you need telling.
+    { key = "fullBoxNote", label = "FULL BOX NOTE", type = "toggle",
+      default = true },
   })
+
+  local function option(key, fallback)
+    local ok, value = pcall(function() return mod.options:get(key) end)
+    if not ok or value == nil then return fallback end
+    return value
+  end
 
   -- ------- the screen
   --
@@ -162,10 +173,77 @@ return function(mod)
     renameStorageText(payload and payload.game)
   end)
 
+  -- ------- a catch that overflows says so
+  --
+  -- The overflow itself is NOT this mod's: src/pokemon/Boxes.lua's `deposit`
+  -- already walks from the open box forward through all twelve and drops the
+  -- POKeMON in the first one with room, wrapping, and the catch only fails
+  -- ("But every BOX is full!") when all 240 places are taken.  That is a
+  -- deliberate engine divergence -- the cart refused the catch outright the
+  -- moment the open box was full -- and it is what a player wants.
+  --
+  -- What it does not do is SAY so.  The line it prints is the cart's own
+  -- ("<MON> was transferred to BILL's BOX!") and the cart never needed to
+  -- name a box, because on the cart the POKeMON could only ever be in the one
+  -- you had open.  Here it can be in any of twelve, and nothing on screen
+  -- tells you which -- so a POKeMON caught into a full box is findable only
+  -- by opening the PC and walking the boxes.
+  --
+  -- One extra line closes that, and only in the case that needs it: the
+  -- landing box is compared against the open one, so an ordinary catch into
+  -- the open box stays exactly as quiet as it was.
+  --
+  -- The number cannot go into the transfer line itself.  That text is
+  -- ROM-extracted and reached through src/core/RomText.lua, which fills its
+  -- {} slots from the caller's arguments -- BattleState passes exactly one,
+  -- the POKeMON's name, so a second slot makes the arity check fail and the
+  -- whole line falls back to the engine's own English (saying "PC" again).
+  local Boxes = require("src.pokemon.Boxes")
+
+  local function boxHolding(save, mon)
+    local boxes = save and save.boxes
+    if not (boxes and mon) then return nil end
+    for i = 1, Boxes.COUNT do
+      for _, held in ipairs(boxes[i] or {}) do
+        if held == mon then return i end
+      end
+    end
+    return nil
+  end
+
+  -- The line to add after the transfer message, or nil when there is nothing
+  -- worth saying.  Split out from the handler so the suite can ask it
+  -- directly rather than having to stage a battle.
+  local function overflowLine(save, mon)
+    local landed = boxHolding(save, mon)
+    if not landed then return nil end
+    local open = save.currentBox or 1
+    if landed == open then return nil end
+    return Strings("BOX %d was full!\nStored in BOX %d.", open, landed)
+  end
+
+  -- BattleState:sayNext inserts at the queue's `nextInsert`, which the
+  -- transfer message has just advanced, so this lands immediately after it
+  -- rather than at the end of the battle's remaining chatter.  The event
+  -- fires on the line after the deposit (src/battle/BattleState.lua), which
+  -- is why the POKeMON is already in a box to be found by the time we look.
+  mod.events:on("pokemon.caught", function(payload)
+    if type(payload) ~= "table" or payload.destination ~= "box" then return end
+    if not option("fullBoxNote", true) then return end
+    local battle, game = payload.battle, payload.game
+    if type(battle) ~= "table" or type(battle.sayNext) ~= "function" then return end
+    local save = game and game.save
+    if type(save) ~= "table" then return end
+    local line = overflowLine(save, payload.mon)
+    if line then battle:sayNext(line) end
+  end)
+
   -- exported so the suite can drive the rename without a booted game, and so
   -- a companion mod can ask whether the rename has run yet
   mod.exports.renameStorageText = renameStorageText
   mod.exports.pcRowLabels = PC_ROWS
+  mod.exports.overflowLine = overflowLine
+  mod.exports.boxHolding = boxHolding
 
   mod.log:info("BILL'S PC is a box")
 end

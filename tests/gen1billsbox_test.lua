@@ -688,5 +688,113 @@ do
   T.eq(interior, 0, "and every row under it is edge pixels only, so it reads hollow")
 end
 
+
+-- ------- a catch into a full box
+--
+-- The overflow is the ENGINE's, not this mod's: src/pokemon/Boxes.lua's
+-- deposit walks from the open box forward through all twelve and wraps.  It
+-- is pinned here anyway, because this mod owns the storage screen and rewrites
+-- the very line that catch prints, so a regression in either would show up as
+-- "my catch vanished".
+
+do
+  local function fullSave(openBox, fullBoxes)
+    local boxes = {}
+    for i = 1, Boxes.COUNT do
+      boxes[i] = {}
+      if fullBoxes[i] then
+        for j = 1, Boxes.CAPACITY do boxes[i][j] = mon("FIXMON_A") end
+      end
+    end
+    return { boxes = boxes, currentBox = openBox, party = {} }
+  end
+
+  -- the open box is full: the catch lands in the next one, not on the floor
+  local save = fullSave(1, { [1] = true })
+  local caught = mon("FIXMON_B")
+  T.eq(Boxes.deposit(save, caught), 2, "a full open box overflows into the next")
+  T.eq(save.boxes[2][1], caught, "and the POKeMON really is in it")
+  T.eq(#save.boxes[1], Boxes.CAPACITY, "leaving the full one exactly full")
+
+  -- it skips full boxes rather than stopping at the first one
+  save = fullSave(1, { [1] = true, [2] = true, [3] = true })
+  T.eq(Boxes.deposit(save, mon("FIXMON_B")), 4, "and skips every full box on the way")
+
+  -- and it wraps round the back rather than giving up at box twelve
+  local all = {}
+  for i = 2, Boxes.COUNT do all[i] = true end
+  save = fullSave(5, all)
+  T.eq(Boxes.deposit(save, mon("FIXMON_B")), 1,
+    "from box 5 with 2..12 full it wraps to box 1")
+
+  -- only when all 240 places are taken does the catch fail
+  for i = 1, Boxes.COUNT do all[i] = true end
+  save = fullSave(1, all)
+  T.eq(Boxes.deposit(save, mon("FIXMON_B")), nil,
+    "twelve full boxes is the one case that refuses")
+end
+
+-- ------- and it says where the POKeMON went
+
+local exports = run.loader.exports[run.mod.manifest.id]
+T.eq(type(exports.overflowLine), "function", "the overflow note is exported")
+
+do
+  local overflowLine = exports.overflowLine
+  local boxes = {}
+  for i = 1, Boxes.COUNT do boxes[i] = {} end
+  local save = { boxes = boxes, currentBox = 3, party = {} }
+
+  -- landed in the box you had open: nothing to say, and nothing is said
+  local quiet = mon("FIXMON_A")
+  boxes[3][1] = quiet
+  T.eq(overflowLine(save, quiet), nil,
+    "an ordinary catch into the open box stays as quiet as it was")
+
+  -- landed somewhere else: name both boxes, because neither is guessable
+  local overflowed = mon("FIXMON_B")
+  boxes[7][1] = overflowed
+  local line = overflowLine(save, overflowed)
+  T.check(line ~= nil, "a catch that overflowed says so")
+  T.check(line:find("BOX 3 was full!", 1, true) ~= nil,
+    "naming the box that was full")
+  T.check(line:find("Stored in BOX 7.", 1, true) ~= nil,
+    "and the box it actually went to")
+  for chunk in (line .. "\n"):gmatch("([^\n]*)\n") do
+    T.check(#chunk <= 18, "each line fits the battle text box: " .. chunk)
+  end
+
+  -- a POKeMON that is in no box at all (a party catch) asks for nothing
+  T.eq(overflowLine(save, mon("FIXMON_C")), nil,
+    "a POKeMON that never reached a box says nothing")
+end
+
+-- driven through the real event, with a battle that records what it is told
+do
+  local said = {}
+  local battle = { sayNext = function(_, text) said[#said + 1] = text end }
+  local boxes = {}
+  for i = 1, Boxes.COUNT do boxes[i] = {} end
+  local game = { save = { boxes = boxes, currentBox = 1, party = {} } }
+
+  local overflowed = mon("FIXMON_B")
+  boxes[4][1] = overflowed
+  Runtime.emit("pokemon.caught",
+    { battle = battle, game = game, mon = overflowed, destination = "box" })
+  T.eq(#said, 1, "the caught event adds one line")
+  T.check(said[1]:find("Stored in BOX 4.", 1, true) ~= nil, "naming box 4")
+
+  -- a catch that went to the PARTY is not this handler's business
+  said = {}
+  Runtime.emit("pokemon.caught",
+    { battle = battle, game = game, mon = overflowed, destination = "party" })
+  T.eq(#said, 0, "a catch into the party says nothing")
+
+  -- and a payload with no battle to talk through is survived, not thrown on
+  Runtime.emit("pokemon.caught", { game = game, mon = overflowed, destination = "box" })
+  Runtime.emit("pokemon.caught", { destination = "box" })
+  T.eq(#said, 0, "a payload with nothing to say through is simply ignored")
+end
+
 run.release()
 T.finish("Gen1BillsBox")
