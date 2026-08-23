@@ -44,6 +44,11 @@ return function(mod)
     -- think you are filling, which is the one time you need telling.
     { key = "fullBoxNote", label = "FULL BOX NOTE", type = "toggle",
       default = true },
+    -- The open box follows a catch that overflowed.  On by default because
+    -- leaving it behind means the PC keeps opening on a box with no room in
+    -- it, and every later catch walks past that box again.
+    { key = "switchOnFull", label = "SWITCH ON FULL", type = "toggle",
+      default = true },
   })
 
   local function option(key, fallback)
@@ -211,38 +216,77 @@ return function(mod)
     return nil
   end
 
-  -- The line to add after the transfer message, or nil when there is nothing
-  -- worth saying.  Split out from the handler so the suite can ask it
-  -- directly rather than having to stage a battle.
-  local function overflowLine(save, mon)
+  -- Where a catch actually landed, when that is not where the player thinks
+  -- they are filling.  Pure: `open` is the box that was full and `landed` the
+  -- one with room, or nothing at all when the catch went to the open box (the
+  -- ordinary case, which has nothing to report) or to no box at all.
+  local function overflowTarget(save, mon)
     local landed = boxHolding(save, mon)
     if not landed then return nil end
     local open = save.currentBox or 1
     if landed == open then return nil end
+    return open, landed
+  end
+
+  -- Two lines, because the battle's text box is two lines.  Which second line
+  -- depends on what actually happened, so the note can never claim a switch
+  -- that the option turned off.  "Now using BOX 12." is 17 glyphs and
+  -- "Stored in BOX 12." 17, both inside the box's eighteen.
+  local function overflowNote(open, landed, switched)
+    if switched then
+      return Strings("BOX %d was full!\nNow using BOX %d.", open, landed)
+    end
     return Strings("BOX %d was full!\nStored in BOX %d.", open, landed)
   end
 
+  -- ------- and the open box follows it
+  --
+  -- Asked for as "Gen 2 behaviour", though that is not what Gold does: there a
+  -- full party AND a full current box REFUSES the throw outright
+  -- (Ball_BoxIsFullMessage, "The POKéMON BOX is full. That can't be used
+  -- now."), and Bill rings you when a box fills.  Advancing to the next box
+  -- with room is Gen 3's answer.  Either way it is the right one here, because
+  -- this engine already refuses to lose the catch: without the switch the open
+  -- box stays the full one, so every later catch overflows again and the PC
+  -- keeps opening on a box with no room in it.
+  --
+  -- Moving currentBox also aims the NEXT overflow: Boxes.deposit starts its
+  -- walk from the open box, so pointing it at the box that just took one
+  -- means the next catch lands there directly instead of walking past the full
+  -- one again.
+  --
+  -- The vanilla PC saved the game when it changed box, because the cart was
+  -- swapping an SRAM bank.  This does not, for the same reason the box screen
+  -- does not: all twelve boxes are one save file here.
+  --
   -- BattleState:sayNext inserts at the queue's `nextInsert`, which the
-  -- transfer message has just advanced, so this lands immediately after it
-  -- rather than at the end of the battle's remaining chatter.  The event
-  -- fires on the line after the deposit (src/battle/BattleState.lua), which
-  -- is why the POKeMON is already in a box to be found by the time we look.
+  -- transfer message has just advanced, so the note lands immediately after it
+  -- rather than at the end of the battle's remaining chatter.  The event fires
+  -- on the line after the deposit (src/battle/BattleState.lua), which is why
+  -- the POKeMON is already in a box to be found by the time we look.
   mod.events:on("pokemon.caught", function(payload)
     if type(payload) ~= "table" or payload.destination ~= "box" then return end
-    if not option("fullBoxNote", true) then return end
     local battle, game = payload.battle, payload.game
-    if type(battle) ~= "table" or type(battle.sayNext) ~= "function" then return end
     local save = game and game.save
     if type(save) ~= "table" then return end
-    local line = overflowLine(save, payload.mon)
-    if line then battle:sayNext(line) end
+
+    local open, landed = overflowTarget(save, payload.mon)
+    if not open then return end
+
+    local switched = option("switchOnFull", true) and true or false
+    if switched then save.currentBox = landed end
+
+    if not option("fullBoxNote", true) then return end
+    if type(battle) ~= "table" or type(battle.sayNext) ~= "function" then return end
+    battle:sayNext(overflowNote(open, landed, switched))
   end)
 
   -- exported so the suite can drive the rename without a booted game, and so
   -- a companion mod can ask whether the rename has run yet
   mod.exports.renameStorageText = renameStorageText
   mod.exports.pcRowLabels = PC_ROWS
-  mod.exports.overflowLine = overflowLine
+  mod.exports.overflowTarget = overflowTarget
+  mod.exports.overflowNote = overflowNote
   mod.exports.boxHolding = boxHolding
 
   mod.log:info("BILL'S PC is a box")

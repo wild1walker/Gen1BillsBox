@@ -137,6 +137,7 @@ In the mod manager's row for this mod:
 | **HOLD TO MOVE** | on | Hold a direction to keep moving, at the cadence the engine's own list menus use. |
 | **OPEN ON** | BOX | Which side the cursor starts on. |
 | **FULL BOX NOTE** | on | One line after a catch that overflowed, naming the box it actually went to. See below. |
+| **SWITCH ON FULL** | on | The open box follows a catch that overflowed, instead of staying on the full one. |
 
 ## Catching into a full box
 
@@ -153,15 +154,33 @@ box, because there the POKéMON could only ever be in the one you had open.
 Here it can be in any of twelve, so a POKéMON caught into a full box was
 findable only by opening the PC and walking the boxes.
 
-So this mod adds one line after it:
+So this mod adds one line after it, and moves the open box to match:
 
 ```
 BOX 1 was full!
-Stored in BOX 7.
+Now using BOX 7.
 ```
 
 Only when the two differ. An ordinary catch into the box you have open is
 exactly as quiet as it always was.
+
+Moving the open box is the half that matters most. Left behind, the PC keeps
+opening on a box with no room in it, and because `Boxes.deposit` starts its
+walk from the open box, *every* later catch walks past the full one again.
+Following the overflow means the next catch lands directly in a box with
+space. Turn it off with **SWITCH ON FULL** and the note says
+*"Stored in BOX 7."* instead — it never claims a switch that did not happen.
+
+This was asked for as Gen 2 behaviour, and it is worth recording that Gold
+does the opposite: there a full party *and* a full current box refuses the
+throw outright (`Ball_BoxIsFullMessage` — *"The POKéMON BOX is full. That
+can't be used now."*), and Bill rings you when a box fills. Advancing to the
+next box with room is Gen 3's answer. It is the right one on this engine
+either way, which already refuses to lose the catch.
+
+Changing box here does not save the game, for the same reason the box screen's
+own box changes do not: all twelve boxes are one save file on this engine, so
+the cart's "data will be saved" step has nothing left to do.
 
 The number cannot go into the transfer line itself, for what it's worth: that
 text is ROM-extracted and filled from the caller's arguments, and the battle

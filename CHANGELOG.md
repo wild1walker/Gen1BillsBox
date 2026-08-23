@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.4
+
+- **The open box now follows a catch that overflowed.** Catch into a full box
+  and the PC's open box becomes the one that took it, so the PC stops opening
+  on a box with no room in it. It also aims the *next* overflow:
+  `Boxes.deposit` starts its walk from the open box, so the following catch
+  lands there directly instead of walking past the full one again.
+- The note says which happened rather than assuming: *"BOX 1 was full! / Now
+  using BOX 7."* when the box moved, *"…/ Stored in BOX 7."* when
+  **SWITCH ON FULL** is off.
+- New option **SWITCH ON FULL** (on).
+
+Worth recording, since it was asked for as Gen 2 behaviour: Gold does the
+opposite. A full party *and* a full current box refuses the throw outright
+there (`Ball_BoxIsFullMessage` — "The POKéMON BOX is full. That can't be used
+now."), and Bill rings you when a box fills. Advancing to the next box with
+room is Gen 3's answer, and it is the right one on this engine, which already
+refuses to lose the catch.
+
 ## 1.0.3
 
 - **The POKéMON are centred in their cells.** 1.0.2 sat them 6 pixels below

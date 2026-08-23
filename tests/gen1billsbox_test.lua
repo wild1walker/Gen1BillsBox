@@ -735,39 +735,52 @@ do
     "twelve full boxes is the one case that refuses")
 end
 
--- ------- and it says where the POKeMON went
+-- ------- and it says where the POKeMON went, and opens that box
 
 local exports = run.loader.exports[run.mod.manifest.id]
-T.eq(type(exports.overflowLine), "function", "the overflow note is exported")
+T.eq(type(exports.overflowTarget), "function", "the overflow lookup is exported")
+T.eq(type(exports.overflowNote), "function", "and the note it builds")
 
 do
-  local overflowLine = exports.overflowLine
+  local overflowTarget, overflowNote = exports.overflowTarget, exports.overflowNote
   local boxes = {}
   for i = 1, Boxes.COUNT do boxes[i] = {} end
   local save = { boxes = boxes, currentBox = 3, party = {} }
 
-  -- landed in the box you had open: nothing to say, and nothing is said
+  -- landed in the box you had open: nothing to report, and nothing is
   local quiet = mon("FIXMON_A")
   boxes[3][1] = quiet
-  T.eq(overflowLine(save, quiet), nil,
+  T.eq(overflowTarget(save, quiet), nil,
     "an ordinary catch into the open box stays as quiet as it was")
 
-  -- landed somewhere else: name both boxes, because neither is guessable
+  -- a POKeMON that is in no box at all (a party catch) asks for nothing
+  T.eq(overflowTarget(save, mon("FIXMON_C")), nil,
+    "a POKeMON that never reached a box reports nothing")
+
+  -- landed somewhere else: both boxes, because neither is guessable
   local overflowed = mon("FIXMON_B")
   boxes[7][1] = overflowed
-  local line = overflowLine(save, overflowed)
-  T.check(line ~= nil, "a catch that overflowed says so")
-  T.check(line:find("BOX 3 was full!", 1, true) ~= nil,
-    "naming the box that was full")
-  T.check(line:find("Stored in BOX 7.", 1, true) ~= nil,
-    "and the box it actually went to")
-  for chunk in (line .. "\n"):gmatch("([^\n]*)\n") do
-    T.check(#chunk <= 18, "each line fits the battle text box: " .. chunk)
-  end
+  local open, landed = overflowTarget(save, overflowed)
+  T.eq(open .. "->" .. landed, "3->7", "an overflow reports the box that was full and the one that took it")
+  T.eq(save.currentBox, 3, "and the lookup itself changes nothing")
 
-  -- a POKeMON that is in no box at all (a party catch) asks for nothing
-  T.eq(overflowLine(save, mon("FIXMON_C")), nil,
-    "a POKeMON that never reached a box says nothing")
+  -- the note tells the truth about what happened, either way round
+  local moved = overflowNote(open, landed, true)
+  T.check(moved:find("BOX 3 was full!", 1, true) ~= nil, "naming the box that was full")
+  T.check(moved:find("Now using BOX 7.", 1, true) ~= nil,
+    "and saying the open box followed it")
+  local stayed = overflowNote(open, landed, false)
+  T.check(stayed:find("Stored in BOX 7.", 1, true) ~= nil,
+    "with SWITCH ON FULL off it says where the POKeMON went instead")
+  T.check(stayed:find("Now using", 1, true) == nil,
+    "and never claims a switch that did not happen")
+
+  -- both fit the battle's two-line box, at the widest box number
+  for _, line in ipairs({ overflowNote(1, 12, true), overflowNote(12, 1, false) }) do
+    for chunk in (line .. "\n"):gmatch("([^\n]*)\n") do
+      T.check(#chunk <= 18, "fits the battle text box: " .. chunk)
+    end
+  end
 end
 
 -- driven through the real event, with a battle that records what it is told
@@ -783,7 +796,22 @@ do
   Runtime.emit("pokemon.caught",
     { battle = battle, game = game, mon = overflowed, destination = "box" })
   T.eq(#said, 1, "the caught event adds one line")
-  T.check(said[1]:find("Stored in BOX 4.", 1, true) ~= nil, "naming box 4")
+  T.check(said[1]:find("Now using BOX 4.", 1, true) ~= nil, "naming box 4")
+  T.eq(game.save.currentBox, 4, "and the open box follows the catch there")
+
+  -- the next catch therefore starts its walk from a box with room, rather
+  -- than from the full one again
+  T.eq(Boxes.deposit(game.save, mon("FIXMON_C")), 4,
+    "so the next catch lands in that box directly")
+
+  -- a catch into the box you are already on: no line, no move
+  said = {}
+  local ordinary = mon("FIXMON_A")
+  boxes[4][#boxes[4] + 1] = ordinary
+  Runtime.emit("pokemon.caught",
+    { battle = battle, game = game, mon = ordinary, destination = "box" })
+  T.eq(#said, 0, "a catch into the open box says nothing")
+  T.eq(game.save.currentBox, 4, "and moves nothing")
 
   -- a catch that went to the PARTY is not this handler's business
   said = {}
@@ -791,10 +819,18 @@ do
     { battle = battle, game = game, mon = overflowed, destination = "party" })
   T.eq(#said, 0, "a catch into the party says nothing")
 
-  -- and a payload with no battle to talk through is survived, not thrown on
+  -- the switch does not need a battle to talk through: a payload with no
+  -- BattleState still moves the open box, it just cannot narrate it
+  said = {}
+  game.save.currentBox = 1
   Runtime.emit("pokemon.caught", { game = game, mon = overflowed, destination = "box" })
+  T.eq(game.save.currentBox, 4, "the open box follows even with nothing to say it through")
+  T.eq(#said, 0, "and nothing is said")
+
+  -- a payload with nothing in it at all is survived rather than thrown on
   Runtime.emit("pokemon.caught", { destination = "box" })
-  T.eq(#said, 0, "a payload with nothing to say through is simply ignored")
+  Runtime.emit("pokemon.caught", nil)
+  T.eq(#said, 0, "an empty payload is simply ignored")
 end
 
 

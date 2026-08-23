@@ -15,6 +15,7 @@ return {
       "STATS and RELEASE moved to START, because A became pick up and put down",
     },
     added = {
+      "the open box follows a catch that overflowed, so the PC stops opening on a box with no room in it and the next catch lands directly in one with space (SWITCH ON FULL)",
       "one line after a catch that overflowed, naming the box that was full and the box the POKeMON actually went to -- only when those differ, so an ordinary catch stays as quiet as it was",
       "a palette zone per POKeMON, in the grid and in the party, so each one wears its own species colours -- a box's worth at once, where the Game Boy could show four",
       "a cursor hanging from the rule above the cell, pointing down at the POKeMON's head, and the same arrow hollow while that POKeMON is in your hand; the party pane keeps the party menu's own sideways filled/hollow pair",
@@ -28,6 +29,8 @@ return {
       "PLACE CRY (on by default), HOLD TO MOVE (on by default) and OPEN ON, in the mod manager",
     },
     known = {
+      "asked for as Gen 2 behaviour, though Gold does the opposite: a full party AND a full current box refuses the throw there (Ball_BoxIsFullMessage) and Bill rings you when a box fills; advancing to the next box with room is Gen 3's answer, and it is the right one on an engine that already refuses to lose the catch",
+      "the note says which actually happened -- 'Now using BOX n.' when the open box followed, 'Stored in BOX n.' when SWITCH ON FULL is off -- so it can never claim a switch that did not occur",
       "a 16-pixel icon does not centre in the 23 pixels between two rules, so it sits 3 in from one side and 4 from the other -- the same half pixel on both axes, which is why the cursor hangs from the rule rather than taking its room out of the top of the cell",
       "the overflow itself is the ENGINE's, not this mod's: src/pokemon/Boxes.lua's deposit already walks from the open box forward through all twelve and wraps, and a catch only fails once all 240 places are taken; what this mod adds is the line that says which box it landed in",
       "the box number cannot go into the transfer line itself -- that text is ROM-extracted and filled from the caller's arguments, and the battle passes exactly one, so a second slot fails RomText's arity check and drops the line back to the engine's English",

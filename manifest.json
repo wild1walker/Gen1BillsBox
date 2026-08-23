@@ -1,7 +1,7 @@
 {
   "id": "Gen1BillsBox",
   "name": "Gen1BillsBox",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "api": 2,
   "games": ["gen1"],
   "entry": "main.lua",
@@ -22,6 +22,6 @@
   ],
   "conflicts": ["modern_pc_ui"],
   "permissions": ["engine_internals"],
-  "description": "Replaces Bill's PC with a box you can see: the party down the left, the open box as a 5x4 grid on the right, and a cursor that picks a POKeMON up and puts it down. Drawn in the Game Boy's own font and black line art, with the party menu's own icons in every slot -- so a menu-icon mod shows up here too -- and a palette zone per cell, so every POKeMON in the box wears its own species colours where the Game Boy could show four at once. The cursor is an arrow over a POKeMON's head, hollow while one is in hand. A POKeMON caught into a full box says which box it actually went to. The PC's storage rows are renamed BILL'S BOX and SOMEONE'S BOX.",
+  "description": "Replaces Bill's PC with a box you can see: the party down the left, the open box as a 5x4 grid on the right, and a cursor that picks a POKeMON up and puts it down. Drawn in the Game Boy's own font and black line art, with the party menu's own icons in every slot -- so a menu-icon mod shows up here too -- and a palette zone per cell, so every POKeMON in the box wears its own species colours where the Game Boy could show four at once. The cursor is an arrow over a POKeMON's head, hollow while one is in hand. A POKeMON caught into a full box says which box it actually went to, and the open box follows it there. The PC's storage rows are renamed BILL'S BOX and SOMEONE'S BOX.",
   "github": "wild1walker/Gen1BillsBox"
 }
