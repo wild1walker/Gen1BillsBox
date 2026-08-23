@@ -129,6 +129,24 @@ local function ids(list)
   return table.concat(out, ",")
 end
 
+-- The box as a PICTURE: one character per grid cell, "." for an empty one.
+-- The compact array's order stopped meaning anything the moment cells could
+-- be left empty, so this is what a box assertion is about now.
+local function grid(screen)
+  local out = {}
+  for slot = 1, 20 do
+    local m = screen:monDrawnAt("box", slot)
+    out[#out + 1] = m and m.species:gsub("FIXMON_", "") or "."
+  end
+  return table.concat(out)
+end
+
+-- The arrangement lives in this mod's save data, which is one bucket per mod
+-- rather than one per fake save, so a case that does not clear it inherits
+-- the last case's gaps.
+local forgetGrid = run.loader.exports[run.mod.manifest.id].forgetGrid
+T.eq(type(forgetGrid), "function", "the arrangement can be forgotten")
+
 -- how many POKeMON exist anywhere the save can see them, plus whatever the
 -- cursor is carrying: the number this screen must never change by accident
 local function census(game, screen)
@@ -145,37 +163,49 @@ local function drive(game, screen, ...)
   game.release()
 end
 
--- pick up, move, put down inside one box
+-- pick up, leave a hole, put down in an empty cell
 do
+  forgetGrid()
   local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B") })
+  forgetGrid()
   local screen = factory.new(game)
   local before = census(game, screen)
+  T.eq(grid(screen), "AB" .. string.rep(".", 18), "two POKeMON, cells one and two")
+
   drive(game, screen, "a")
   T.eq(#game.save.boxes[1], 1, "picking one up takes it out of the box")
   T.check(screen.held ~= nil, "and the cursor is carrying it")
   T.eq(census(game, screen), before, "nothing has gone missing")
-  drive(game, screen, "right", "a")
-  T.eq(ids(game.save.boxes[1]), "FIXMON_B,FIXMON_A",
-    "putting it down in an empty cell appends to the compact list")
-  T.eq(screen.boxSlot, 2, "and the cursor follows it to where it landed")
+  -- the reported bug: B used to slide up into cell one behind it
+  T.eq(screen:monDrawnAt("box", 2), game.save.boxes[1][1],
+    "the POKeMON behind it does not slide up into the hole")
+
+  drive(game, screen, "right", "right", "a")
+  T.eq(grid(screen), ".BA" .. string.rep(".", 17),
+    "it lands in the cell you aimed at, leaving cell one empty")
+  T.eq(screen.boxSlot, 3, "and the cursor does not jump anywhere")
   T.eq(census(game, screen), before, "still nothing missing")
 end
 
 -- an occupied cell swaps rather than refusing
 do
+  forgetGrid()
   local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B"), mon("FIXMON_C") })
+  forgetGrid()
   local screen = factory.new(game)
-  -- grabbing slot 1 compacts the box to two, so slot 2 now holds FIXMON_C
   drive(game, screen, "a", "right", "a")
-  T.eq(ids(game.save.boxes[1]), "FIXMON_C,FIXMON_B,FIXMON_A",
-    "dropping onto an occupied cell swaps the two")
+  T.eq(grid(screen), "BAC" .. string.rep(".", 17),
+    "dropping onto an occupied cell swaps the two, in place")
   T.check(screen.held == nil, "and the hand is empty afterwards")
+  T.eq(#game.save.boxes[1], 3, "with all three still in the box")
 end
 
 -- ------- crossing to the party
 
 do
+  forgetGrid()
   local game = fakeGame({ mon("FIXMON_A") }, { mon("FIXMON_B"), mon("FIXMON_C") })
+  forgetGrid()
   local screen = factory.new(game)
   -- LEFT out of column one is the party
   drive(game, screen, "left")
@@ -192,7 +222,9 @@ end
 
 -- the party may not be emptied
 do
+  forgetGrid()
   local game = fakeGame({}, { mon("FIXMON_A") })
+  forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "left", "a")
   T.check(screen.held == nil, "the last party POKeMON cannot be picked up")
@@ -202,7 +234,9 @@ end
 
 -- B puts a carried POKeMON back in the slot it was taken from
 do
+  forgetGrid()
   local game = fakeGame({ mon("FIXMON_A") }, { mon("FIXMON_B"), mon("FIXMON_C") })
+  forgetGrid()
   local screen = factory.new(game)
   local before = census(game, screen)
   drive(game, screen, "left", "down", "a")
@@ -222,6 +256,7 @@ do
   local boxMons = {}
   for i = 1, Boxes.CAPACITY do boxMons[i] = mon("FIXMON_A") end
   local game = fakeGame(boxMons, { mon("FIXMON_B"), mon("FIXMON_C") })
+  forgetGrid()
   local screen = factory.new(game)
   local before = census(game, screen)
   drive(game, screen, "left", "a", "right", "a")
@@ -238,11 +273,13 @@ do
   for i = 1, Boxes.CAPACITY do boxMons[i] = mon("FIXMON_A") end
   for i = 1, 6 do partyMons[i] = mon("FIXMON_B") end
   local game = fakeGame(boxMons, partyMons)
+  forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "a", "left", "a")
   T.check(screen.held == nil, "the swap goes through")
   T.eq(game.save.party[1].species, "FIXMON_A", "the box POKeMON is in the party")
-  T.eq(game.save.boxes[1][1].species, "FIXMON_B", "and the party one is boxed")
+  T.eq(screen:monDrawnAt("box", 1).species, "FIXMON_B",
+    "and the party one is in the cell the other left")
   T.eq(#game.save.party, 6, "the party is still six")
   T.eq(#game.save.boxes[1], Boxes.CAPACITY, "and the box still twenty")
   T.check(game.save.party[1].stats ~= nil, "the withdrawn half got its stats")
@@ -252,6 +289,7 @@ end
 
 do
   local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "up")
   T.eq(screen.pane, "header", "UP out of the top row lands on the box header")
@@ -267,6 +305,7 @@ end
 -- home was
 do
   local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B") })
+  forgetGrid()
   local screen = factory.new(game)
   local before = census(game, screen)
   drive(game, screen, "right", "a")           -- carry FIXMON_B out of box 1
@@ -287,6 +326,7 @@ end
 -- closing the screen can never strand a POKeMON outside the save
 do
   local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "a")
   T.check(screen.held ~= nil, "carrying one")
@@ -298,6 +338,7 @@ end
 -- B on an empty hand closes the screen
 do
   local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
   local screen = factory.new(game)
   game.stack:push(screen)
   drive(game, screen, "b")
@@ -328,6 +369,7 @@ end
 
 do
   local game = fakeGame({ mon("FIXMON_A") }, { mon("FIXMON_B"), mon("FIXMON_C") })
+  forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "start")
   local menu = game.stack:top()
@@ -349,6 +391,7 @@ end
 
 do
   local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "up", "a")
   local list = game.stack:top()
@@ -364,6 +407,7 @@ end
 -- SELECT crosses the screen without walking the cursor back to column one
 do
   local game = fakeGame({ mon("FIXMON_A") }, { mon("FIXMON_B") })
+  forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "right", "right", "select")
   T.eq(screen.pane, "party", "SELECT crosses to the party")
@@ -389,6 +433,7 @@ do
 
   local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B") },
                         { mon("FIXMON_C") })
+  forgetGrid()
   local screen = factory.new(game)
 
   local rects = {}
@@ -473,6 +518,7 @@ do
   local PartyMenu = require("src.ui.PartyMenu")
   local boxA, boxB, partyC = mon("FIXMON_A"), mon("FIXMON_B"), mon("FIXMON_C")
   local game = fakeGame({ boxA, boxB }, { partyC })
+  forgetGrid()
   local screen = factory.new(game)
 
   local calls = {}
@@ -495,28 +541,54 @@ do
     "the live POKeMON table is what reaches the renderer, not a copy")
 end
 
--- a carried POKeMON rides the cursor and covers the slot it is over
+-- a carried POKeMON rides the cursor, and slowly flashes while it does
 do
   local PartyMenu = require("src.ui.PartyMenu")
   local boxA, boxB = mon("FIXMON_A"), mon("FIXMON_B")
+  forgetGrid()
   local game = fakeGame({ boxA, boxB })
   local screen = factory.new(game)
   drive(game, screen, "a")
   T.eq(screen.held.mon, boxA, "FIXMON_A is in hand")
-  T.eq(game.save.boxes[1][1], boxB, "and FIXMON_B has compacted into slot one")
+  T.eq(screen:monDrawnAt("box", 2), boxB,
+    "and FIXMON_B has stayed in cell two rather than closing the gap")
 
-  local calls = {}
-  local real = PartyMenu.drawIcon
-  PartyMenu.drawIcon = function(_, m, x, y)
-    calls[#calls + 1] = { mon = m, x = x, y = y }
+  local function drawn()
+    local calls = {}
+    local real = PartyMenu.drawIcon
+    PartyMenu.drawIcon = function(_, m, x, y)
+      calls[#calls + 1] = { mon = m, x = x, y = y }
+    end
+    pcall(function() screen:draw() end)
+    PartyMenu.drawIcon = real
+    return calls
   end
-  pcall(function() screen:draw() end)
-  PartyMenu.drawIcon = real
 
-  T.eq(#calls, 1, "only the carried POKeMON is drawn on the cursor's cell")
-  T.eq(calls[1].mon, boxA, "and it is the carried one, not the slot's occupant")
-  T.eq(calls[1].x .. "," .. calls[1].y, "36,31",
-    "in the slot, not lifted -- the hollow arrow is what says it is carried")
+  local lit = drawn()
+  T.eq(#lit, 2, "the carried one and the one that stayed put are both drawn")
+  T.eq(lit[1].mon, boxA, "the carried one on the cursor's own cell")
+  T.eq(lit[1].x .. "," .. lit[1].y, "36,31",
+    "in the cell, not lifted -- the hollow arrow is what says it is carried")
+  T.eq(lit[2].mon, boxB, "and FIXMON_B in the cell it never left")
+
+  -- the flash: lit for the first stretch of each cycle, dark for the rest,
+  -- and only ever the POKeMON in your hand
+  screen.blink = 0
+  T.eq(#drawn(), 2, "at the top of the cycle the carried one is lit")
+  screen.blink = 45
+  local dark = drawn()
+  T.eq(#dark, 1, "later in the cycle it is dark")
+  T.eq(dark[1].mon, boxB, "and what is left is the one that is NOT in your hand")
+  screen.blink = 59
+  T.eq(#drawn(), 1, "still dark at the end of the cycle")
+  screen.blink = 60
+  T.eq(#drawn(), 2, "and lit again when it turns over")
+
+  -- nothing flashes when nothing is in hand
+  drive(game, screen, "b")
+  T.check(screen.held == nil, "with an empty hand")
+  screen.blink = 45
+  T.eq(#drawn(), 2, "both POKeMON stay lit through the whole cycle")
 end
 
 
@@ -530,6 +602,7 @@ do
   local game = fakeGame({ mon("FIXMON_A") })
   local down = {}
   game.input.isDown = function(_, key) return down[key] end
+  forgetGrid()
   local screen = factory.new(game)
 
   drive(game, screen, "right")
@@ -575,6 +648,7 @@ do
   }
 
   local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B") }, { mon("FIXMON_B") })
+  forgetGrid()
   local screen = factory.new(game)
   local zones = screen:sgbPalettes(game)
   T.check(type(zones) == "table" and zones[1] ~= nil, "the screen owns its palette")
@@ -635,6 +709,7 @@ end
 
 do
   local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
   local screen = factory.new(game)
 
   local function arrowRows()
@@ -924,6 +999,7 @@ do
 
   local vivid, plain = mon("FIXMON_A"), mon("FIXMON_B")
   local game = fakeGame({ vivid, plain })
+  forgetGrid()
   local screen = factory.new(game)
 
   -- the palette pass leaves the full-colour one alone and still colours the
@@ -972,6 +1048,61 @@ do
   love.image.newImageData = realNewImageData
   Data.icons = nil
   Data.palettes = nil
+end
+
+
+-- ------- the gaps survive, and reconcile with a save edited elsewhere
+--
+-- The arrangement lives beside the box, in this mod's own save data, and the
+-- box itself stays the compact array the engine appends to.  That split is
+-- only safe if the two are reconciled on every read, because anything may add
+-- to a box behind this screen's back: a catch overflowing into it, another
+-- mod, an imported .sav.
+
+do
+  forgetGrid()
+  local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B") })
+  local screen = factory.new(game)
+
+  -- leave a gap, then close the box and open it again
+  drive(game, screen, "a", "right", "right", "a")
+  T.eq(grid(screen), ".BA" .. string.rep(".", 17), "a gap was left")
+  local reopened = factory.new(game)
+  T.eq(grid(reopened), ".BA" .. string.rep(".", 17),
+    "and it is still there the next time the box is opened")
+
+  -- a POKeMON that arrived while the screen was shut -- a catch overflowing
+  -- into this box, say -- takes the lowest free cell
+  Boxes.deposit(game.save, mon("FIXMON_C"))
+  T.eq(#game.save.boxes[1], 3, "the engine appended it to the compact array")
+  local afterCatch = factory.new(game)
+  T.eq(grid(afterCatch), "CBA" .. string.rep(".", 17),
+    "and the arrangement grows to meet it, in the lowest free cell")
+
+  -- and one taken out of the array elsewhere leaves the rest where they were
+  table.remove(game.save.boxes[1])
+  local afterLoss = factory.new(game)
+  local shown = 0
+  for slot = 1, 20 do
+    if afterLoss:monDrawnAt("box", slot) then shown = shown + 1 end
+  end
+  T.eq(shown, 2, "a POKeMON removed elsewhere leaves exactly two on the grid")
+  T.eq(#game.save.boxes[1], 2, "with the box itself untouched by the reading")
+end
+
+-- the party still closes up, because a party with a hole in it is not
+-- something the rest of the game would understand
+do
+  forgetGrid()
+  local game = fakeGame({}, { mon("FIXMON_A"), mon("FIXMON_B"), mon("FIXMON_C") })
+  local screen = factory.new(game)
+  drive(game, screen, "left", "down", "a")
+  T.eq(ids(game.save.party), "FIXMON_A,FIXMON_C",
+    "taking the second party POKeMON closes the party up behind it")
+  T.eq(#game.save.party, 2, "so the party is a list of two, not a list with a hole")
+  drive(game, screen, "b")
+  T.eq(ids(game.save.party), "FIXMON_A,FIXMON_B,FIXMON_C",
+    "and B goes back into the slot it came from")
 end
 
 run.release()

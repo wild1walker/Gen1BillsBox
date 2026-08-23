@@ -45,11 +45,19 @@
 -- ------- what a slot means
 --
 -- Gen 1 stores a box as a COMPACT array (src/pokemon/Boxes.lua): box[1..n]
--- with nothing after n.  This screen keeps that shape, because the save
--- format, the vanilla PC and every other mod read it.  So dropping into an
--- empty cell APPENDS rather than leaving a hole, and the cursor snaps to
--- where the POKeMON actually landed instead of sitting on the cell you
--- aimed at.  Ruby's sparse grid is the one thing here that is not copied.
+-- with nothing after n.  That shape is untouched -- it is the save format,
+-- the engine's own deposit appends to it, and it is what is left behind if
+-- this mod is removed.  But it cannot express a GAP, and a grid you cannot
+-- leave a gap in is not a grid: pick the second POKeMON out of six and the
+-- other four slide up behind it.
+--
+-- So the ARRANGEMENT is kept beside the box instead, in this mod's own save
+-- data: one grid cell per POKeMON, reconciled with the box on every read.
+-- A POKeMON picked up leaves its cell empty, one put down lands in the cell
+-- you aimed at, and the others do not move.  See "where in the grid each
+-- POKeMON sits" below.  The PARTY still closes up behind a POKeMON taken out
+-- of it, because a party of six with a hole in it is not a thing the rest of
+-- the game would understand.
 --
 -- ------- the cursor
 --
@@ -149,6 +157,17 @@ return function(mod)
   -- how many steps between the two icon frames; the party menu picks 5, 16
   -- or 32 off the mon's HP bar colour, and a storage grid has no bar to read
   local ANIM_STEPS = 8
+
+  -- A POKeMON in your hand flashes.  Four shades cannot dim one, so it blinks
+  -- the way everything on a Game Boy blinks -- but slowly, and on far longer
+  -- than off, because the thing flashing is the thing you are trying to look
+  -- at.  Two thirds of a second lit, a third dark, at the engine's sixty
+  -- steps.
+  local FLASH_PERIOD, FLASH_ON = 60, 40
+
+  -- One counter drives both, wrapped at a common multiple so neither jumps
+  -- when it turns over.
+  local TICKS = 240
 
   -- ------- options, read live so the manager's rows take effect at once
 
@@ -325,6 +344,105 @@ return function(mod)
     return hit or nil
   end
 
+  -- ------- where in the grid each POKeMON sits
+  --
+  -- Gen 1 stores a box as a COMPACT array (src/pokemon/Boxes.lua): box[1..n]
+  -- with nothing after n.  That is the save format, it is what the engine's
+  -- own deposit appends to, and it is what is left behind if this mod is ever
+  -- removed -- so it stays exactly as it is.
+  --
+  -- What it cannot express is a GAP, and a grid you cannot leave a gap in is
+  -- not really a grid: pick the second POKeMON out of six and the other four
+  -- slide up behind it.  So the arrangement is kept beside the box rather
+  -- than in it: `cells[j]` is the grid cell that `box[j]` sits in, one entry
+  -- per POKeMON, stored in this mod's own save data.
+  --
+  -- The two are reconciled on EVERY read, which is what makes this safe to
+  -- bolt onto a shared save.  Anything else may add to a box behind this
+  -- screen's back -- a catch overflowing into it, another mod, an imported
+  -- .sav -- and the arrangement simply grows to match: extra POKeMON take the
+  -- lowest free cells, extra cells are dropped, and a cell that is out of
+  -- range or claimed twice is thrown away.  The worst case is that the
+  -- arrangement resets to the compact one nobody could see a gap in anyway.
+  local SLOTS = COLS * ROWS
+
+  local function layoutFor(save, boxNumber)
+    local store = mod.save:get("cells")
+    if type(store) ~= "table" then store = {} end
+    -- one key shape whatever a serializer did with the number
+    local key = tostring(boxNumber)
+    local cells = store[key]
+    if type(cells) ~= "table" then cells = store[boxNumber] end
+    if type(cells) ~= "table" then cells = {} end
+    store[boxNumber] = nil
+
+    local list = Boxes.ensure(save)[boxNumber] or {}
+    local seen, clean = {}, {}
+    for j = 1, #cells do
+      local cell = tonumber(cells[j])
+      if cell and cell % 1 == 0 and cell >= 1 and cell <= SLOTS
+          and not seen[cell] then
+        seen[cell] = true
+        clean[#clean + 1] = cell
+      end
+    end
+    while #clean > #list do
+      seen[clean[#clean]] = nil
+      clean[#clean] = nil
+    end
+    local free = 1
+    while #clean < #list do
+      while seen[free] do free = free + 1 end
+      seen[free] = true
+      clean[#clean + 1] = free
+    end
+
+    store[key] = clean
+    mod.save:set("cells", store)
+    return clean
+  end
+
+  local function boxIndexAt(save, boxNumber, cell)
+    local cells = layoutFor(save, boxNumber)
+    for j = 1, #cells do
+      if cells[j] == cell then return j end
+    end
+    return nil
+  end
+
+  local function boxMonAt(save, boxNumber, cell)
+    local j = boxIndexAt(save, boxNumber, cell)
+    if not j then return nil end
+    return Boxes.ensure(save)[boxNumber][j]
+  end
+
+  -- Out of the box AND out of the arrangement, so the cell it was in is now
+  -- an empty one rather than a place the rest slide into.
+  local function boxTake(save, boxNumber, cell)
+    local j = boxIndexAt(save, boxNumber, cell)
+    if not j then return nil end
+    table.remove(layoutFor(save, boxNumber), j)
+    return table.remove(Boxes.ensure(save)[boxNumber], j)
+  end
+
+  -- Appended to both, which is why the compact array's ORDER never has to
+  -- mean anything: the cell beside it is what says where the POKeMON is.
+  local function boxPut(save, boxNumber, cell, mon)
+    local list = Boxes.ensure(save)[boxNumber]
+    local cells = layoutFor(save, boxNumber)
+    list[#list + 1] = mon
+    cells[#cells + 1] = cell
+  end
+
+  local function boxReplace(save, boxNumber, cell, mon)
+    local j = boxIndexAt(save, boxNumber, cell)
+    if not j then return nil end
+    local list = Boxes.ensure(save)[boxNumber]
+    local was = list[j]
+    list[j] = mon
+    return was
+  end
+
   -- ------- the screen
 
   local Screen = {}
@@ -425,16 +543,10 @@ return function(mod)
     return pane == "party" and self.partySlot or self.boxSlot
   end
 
-  -- Where a carried POKeMON came from.  A box origin is remembered by NUMBER,
-  -- not by reference, because the header can walk to another box while it is
-  -- being carried -- B has to put it back in the box it was picked out of.
-  function Screen:originList(held)
-    if held.pane == "party" then return self:listFor("party") end
-    return Boxes.ensure(self.game.save)[held.box] or self:listFor("box")
-  end
-
   function Screen:monAt(pane)
-    return self:listFor(pane)[self:slotIndex(pane)]
+    if pane == "party" then return self:listFor("party")[self.partySlot] end
+    local save = self.game.save
+    return boxMonAt(save, save.currentBox, self.boxSlot)
   end
 
   -- Which POKeMON is actually SHOWN in a given slot, which is not always the
@@ -445,7 +557,9 @@ return function(mod)
     if self.held and self.pane == pane and self:slotIndex(pane) == slot then
       return self.held.mon
     end
-    return self:listFor(pane)[slot]
+    if pane == "party" then return self:listFor("party")[slot] end
+    local save = self.game.save
+    return boxMonAt(save, save.currentBox, slot)
   end
 
   -- ------- talking to the player
@@ -589,37 +703,50 @@ return function(mod)
   end
 
   function Screen:grab()
-    local pane = self.pane
-    local list = self:listFor(pane)
-    local index = self:slotIndex(pane)
-    local mon = list[index]
-    if not mon then return end
-    -- The party may not be emptied, exactly as the vanilla PC refuses the
-    -- last mon.  Refusing the PICK-UP rather than the drop is what makes the
-    -- rule impossible to walk around: with one POKeMON there is nothing to
-    -- reorder either.
-    if pane == "party" and #list <= 1 then
-      self:say(textOf(self.game)._CantDepositLastMonText
-        or Strings("You can't deposit\nthe last POKéMON!"))
+    local save = self.game.save
+    if self.pane == "party" then
+      local list = self:listFor("party")
+      local index = self.partySlot
+      local mon = list[index]
+      if not mon then return end
+      -- The party may not be emptied, exactly as the vanilla PC refuses the
+      -- last mon.  Refusing the PICK-UP rather than the drop is what makes the
+      -- rule impossible to walk around: with one POKeMON there is nothing to
+      -- reorder either.
+      if #list <= 1 then
+        self:say(textOf(self.game)._CantDepositLastMonText
+          or Strings("You can't deposit\nthe last POKéMON!"))
+        return
+      end
+      -- the party is a LIST of six and closes up behind a POKeMON taken out
+      -- of it, because that is what the party is everywhere else in the game
+      table.remove(list, index)
+      self.partyTouched = true
+      self.held = { mon = mon, pane = "party", index = index }
       return
     end
-    table.remove(list, index)
-    if pane == "party" then self.partyTouched = true end
-    self.held = {
-      mon = mon,
-      pane = pane,
-      index = index,
-      box = pane == "box" and self.game.save.currentBox or nil,
-    }
+
+    local cell = self.boxSlot
+    local mon = boxMonAt(save, save.currentBox, cell)
+    if not mon then return end
+    -- the box does NOT close up: the cell this came out of stays empty, and
+    -- the POKeMON around it stay where they were
+    boxTake(save, save.currentBox, cell)
+    self.held = { mon = mon, pane = "box", box = save.currentBox, cell = cell }
   end
 
   function Screen:place()
     local held = self.held
     if not held then return end
+    local save = self.game.save
     local pane = self.pane
-    local list = self:listFor(pane)
-    local index = self:slotIndex(pane)
-    local target = list[index]
+
+    local target
+    if pane == "party" then
+      target = self:listFor("party")[self.partySlot]
+    else
+      target = boxMonAt(save, save.currentBox, self.boxSlot)
+    end
 
     -- Ask before anything moves, so a refusal leaves the POKeMON in hand
     -- rather than half-placed.  A swap is a deposit and a withdrawal at once,
@@ -632,23 +759,37 @@ return function(mod)
 
     if target then
       -- SWAP: the carried POKeMON takes the slot, the one that was there goes
-      -- back to where the carried one came from.  No count changes, so no
-      -- capacity question -- which is why a full party and a full box can
-      -- still trade.
-      local origin = self:originList(held)
-      list[index] = held.mon
-      table.insert(origin, math.min(held.index, #origin + 1), target)
+      -- back to where the carried one came from -- its exact cell, if that was
+      -- a box.  No count changes, so no capacity question, which is why a full
+      -- party and a full box can still trade.
+      if pane == "party" then
+        self:listFor("party")[self.partySlot] = held.mon
+      else
+        boxReplace(save, save.currentBox, self.boxSlot, held.mon)
+      end
+      if held.pane == "party" then
+        local list = self:listFor("party")
+        table.insert(list, math.min(held.index, #list + 1), target)
+      else
+        boxPut(save, held.box, held.cell, target)
+      end
       self:transfer(held.mon, held.pane, pane)
       self:transfer(target, pane, held.pane)
     else
-      -- Defensive, and deliberately so.  The grid has exactly as many cells
-      -- as the list has room (twenty, and six), so a list at capacity has no
+      -- Defensive, and deliberately so.  The grid has exactly as many cells as
+      -- the list has room (twenty, and six), so a list at capacity has no
       -- empty cell left to aim at and every drop into a full one is the swap
       -- above -- this arm cannot be reached in ordinary play.  It stands for
       -- the save that arrives over capacity anyway (an import, another mod's
       -- deposit) so that the answer there is the game's own refusal rather
       -- than a twenty-first POKeMON the box cannot show.
-      if #list >= self:capacityFor(pane) then
+      local count, capacity
+      if pane == "party" then
+        count, capacity = #self:listFor("party"), Party.MAX
+      else
+        count, capacity = #Boxes.ensure(save)[save.currentBox], Boxes.CAPACITY
+      end
+      if count >= capacity then
         local t = textOf(self.game)
         self:say(pane == "party"
           and (t._CantTakeMonText
@@ -657,13 +798,15 @@ return function(mod)
             or Strings("Oops! This Box is\nfull of POKéMON.")))
         return
       end
-      -- a box is a compact array, so an empty cell means "the end of the
-      -- list"; follow the POKeMON to where it really landed
-      list[#list + 1] = held.mon
       if pane == "party" then
+        -- the party closes up, so it lands at the end and the cursor follows
+        local list = self:listFor("party")
+        list[#list + 1] = held.mon
         self.partySlot = #list
       else
-        self.boxSlot = #list
+        -- the box does not: it lands in the cell you aimed at, and the cursor
+        -- is already on it
+        boxPut(save, save.currentBox, self.boxSlot, held.mon)
       end
       self:transfer(held.mon, held.pane, pane)
     end
@@ -679,9 +822,13 @@ return function(mod)
     local held = self.held
     if not held then return end
     self.held = nil
-    local origin = self:originList(held)
-    table.insert(origin, math.min(held.index, #origin + 1), held.mon)
-    if held.pane == "party" then self.partyTouched = true end
+    if held.pane == "party" then
+      local list = self:listFor("party")
+      table.insert(list, math.min(held.index, #list + 1), held.mon)
+      self.partyTouched = true
+    else
+      boxPut(self.game.save, held.box, held.cell, held.mon)
+    end
   end
 
   -- ------- the submenu, the box list, and RELEASE
@@ -698,9 +845,9 @@ return function(mod)
   -- POKeMON never listed the party.
   function Screen:release()
     local game = self.game
-    local box = Boxes.active(game.save)
-    local index = self.boxSlot
-    local mon = box[index]
+    local cell = self.boxSlot
+    local boxNumber = game.save.currentBox
+    local mon = boxMonAt(game.save, boxNumber, cell)
     if not mon then return end
     local t = textOf(game)
     local name = nameOf(game, mon)
@@ -726,10 +873,9 @@ return function(mod)
       defaultNo = true, noSound = true,
       choice = function(yes)
         if not yes then return end
-        -- re-read: the list is live and the confirm ran a frame later
-        local list = Boxes.active(game.save)
-        if list[index] ~= mon then return end
-        table.remove(list, index)
+        -- re-read: the box is live and the confirm ran a frame later
+        if boxMonAt(game.save, boxNumber, cell) ~= mon then return end
+        boxTake(game.save, boxNumber, cell)
         cry(game, mon.species)
         game.stack:push(TextBox.new(game,
           ((t._MonWasReleasedText
@@ -820,7 +966,7 @@ return function(mod)
   -- a real button press can land on the same step, and the direction is the
   -- one of the two that can be asked for again a frame later.
   function Screen:update()
-    self.blink = (self.blink + 1) % (ANIM_STEPS * 2)
+    self.blink = (self.blink + 1) % TICKS
     local input = self.game.input
 
     if input:wasPressed("a") then
@@ -892,6 +1038,11 @@ return function(mod)
     return math.floor(self.blink / ANIM_STEPS) % 2 == 1
   end
 
+  -- lit for the first stretch of each cycle, dark for the rest
+  function Screen:flashOn()
+    return (self.blink % FLASH_PERIOD) < FLASH_ON
+  end
+
   function Screen:drawIcon(mon, x, y, selected)
     if not mon then return end
     love.graphics.setColor(1, 1, 1, 1)
@@ -931,7 +1082,10 @@ return function(mod)
     for i = 1, PARTY_ROWS do
       local y = PARTY_Y + (i - 1) * PARTY_H
       local selected = self.pane == "party" and self.partySlot == i
-      self:drawIcon(self:monDrawnAt("party", i), PARTY_X, y, selected)
+      local carried = selected and self.held ~= nil
+      if not (carried and not self:flashOn()) then
+        self:drawIcon(self:monDrawnAt("party", i), PARTY_X, y, selected)
+      end
       if selected then
         ink(BLACK)
         Font.drawCode(self.held and Theme.cursorHollow or Theme.cursor,
@@ -961,9 +1115,13 @@ return function(mod)
     for slot = 1, COLS * ROWS do
       local x = GRID_X + ((slot - 1) % COLS) * CELL_W
       local y = GRID_Y + math.floor((slot - 1) / COLS) * CELL_H
-      self:drawIcon(self:monDrawnAt("box", slot), x + ICON_DX, y + ICON_DY,
-                    self.pane == "box" and self.boxSlot == slot)
-      if self.pane == "box" and self.boxSlot == slot then
+      local selected = self.pane == "box" and self.boxSlot == slot
+      local carried = selected and self.held ~= nil
+      if not (carried and not self:flashOn()) then
+        self:drawIcon(self:monDrawnAt("box", slot), x + ICON_DX, y + ICON_DY,
+                      selected)
+      end
+      if selected then
         -- the cursor sits in the band over the POKeMON's head and points at
         -- it; hollow says the POKeMON under it is the one in your hand
         ink(BLACK)
@@ -1008,6 +1166,13 @@ return function(mod)
     self:drawInfo()
     love.graphics.setColor(1, 1, 1, 1)
   end
+
+  -- Forget every box's arrangement, which compacts them all back to the
+  -- order the save itself is in.  The suite starts each case with it, and it
+  -- is the honest way out for anything that ever finds the arrangement
+  -- disagreeing with a save it did not come from -- nothing is lost, because
+  -- the arrangement was never where the POKeMON live.
+  mod.exports.forgetGrid = function() mod.save:set("cells", {}) end
 
   return { new = Screen.new }
 end

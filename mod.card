@@ -15,6 +15,8 @@ return {
       "STATS and RELEASE moved to START, because A became pick up and put down",
     },
     added = {
+      "gaps: a POKeMON picked up leaves its cell empty and one put down lands in the cell you aimed at, with the arrangement kept beside the box in this mod's own save data and reconciled with it on every read",
+      "a POKeMON in your hand slowly flashes -- lit far longer than dark, because the thing flashing is the thing you are trying to look at",
       "the open box follows a catch that overflowed, so the PC stops opening on a box with no room in it and the next catch lands directly in one with space (SWITCH ON FULL)",
       "one line after a catch that overflowed, naming the box that was full and the box the POKeMON actually went to -- only when those differ, so an ordinary catch stays as quiet as it was",
       "a palette zone per POKeMON, in the grid and in the party, so each one wears its own species colours -- a box's worth at once, where the Game Boy could show four",
@@ -29,6 +31,8 @@ return {
       "PLACE CRY (on by default), HOLD TO MOVE (on by default) and OPEN ON, in the mod manager",
     },
     known = {
+      "the party still closes up behind a POKeMON taken out of it, because a party of six with a hole in it is not something the rest of the game would understand; only the boxes take gaps",
+      "anything may add to a box behind this screen's back -- a catch overflowing into it, another mod, an imported .sav -- so the arrangement is reconciled with the box on every read: new arrivals take the lowest free cell, spare cells are dropped, and a cell out of range or claimed twice is thrown away",
       "authored full-colour icons are marked with PaletteFX.markTrueColor and given no species zone, because the SGB pass keys each pixel off its RED channel and would paint an orange POKeMON white rather than recolouring it; nothing in PartyMenu.drawIcon marks them, so the screen drawing them has to",
       "which icons those are is decided by reading the pixels of whatever the icon path resolves to -- the one test the icons registry, a species record's own icon, an asset override and the pokemon.icon hook cannot route around; a built-in icon CLASS is never full colour, because drawIcon bakes those to grey through obpIcon",
       "asked for as Gen 2 behaviour, though Gold does the opposite: a full party AND a full current box refuses the throw there (Ball_BoxIsFullMessage) and Bill rings you when a box fills; advancing to the next box with room is Gen 3's answer, and it is the right one on an engine that already refuses to lose the catch",
@@ -41,7 +45,7 @@ return {
       "the COLORS display mode still decides what a species palette contains -- ADVANCED resolves the per-species pokered-gbc colours, CLASSIC and the OG modes replace every palette on screen; this mod asks for the zone and the mode answers",
       "the party pane cannot take the down arrow: six rows of sixteen fill its ninety-six pixels exactly, so there is no band above a party POKeMON's head to put one in",
       "every slot is drawn with PartyMenu.drawIcon, the engine's own party-menu icon path, so an icon mod reaches the box with nothing to configure -- and a species with no per-species icon shows the same generic shape here that it shows in the party",
-      "a box stays a COMPACT array, the shape src/pokemon/Boxes.lua and the save format use, so dropping into an empty cell appends to the end instead of leaving a hole; the cursor follows the POKeMON to where it really landed",
+      "a box stays a COMPACT array in the SAVE -- the shape src/pokemon/Boxes.lua and the save format use, and what is left behind if this mod is removed; the grid arrangement lives beside it rather than in it, so nothing about the save changes and the order of the array stopped meaning anything",
       "the grid has exactly as many cells as a box has room, so a full box has no empty cell to aim at: every drop into one is a swap, which is why a full party and a full box can still trade",
       "the party may not be emptied -- the last POKeMON cannot be picked up at all, which is the vanilla refusal enforced one step earlier so it cannot be walked around",
       "RELEASE is offered for boxed POKeMON only, which is where the vanilla PC offers it",

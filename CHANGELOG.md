@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.0.7
+
+- **Boxes are a real grid now: gaps stay put.** Picking a POKéMON up used to
+  make the one behind it slide into the hole, because a Gen 1 box is a
+  *compact* array — `box[1..n]` with nothing after `n` — and taking one out of
+  the middle closes it up. The array still is that, because it is the save
+  format and what the engine's own deposit appends to. What is new is that the
+  **arrangement** is kept beside it, in this mod's own save data: one grid cell
+  per POKéMON. A POKéMON picked up leaves its cell empty, one put down lands in
+  the cell you aimed at, and nothing else moves. The gaps survive closing the
+  box, and the save is untouched — remove this mod and you get the compact box
+  back, with the same POKéMON in it.
+- The two are reconciled on **every** read, so anything that adds to a box
+  behind this screen's back — a catch overflowing into it, another mod, an
+  imported `.sav` — is absorbed rather than corrupted: new arrivals take the
+  lowest free cell, extra cells are dropped, and a cell out of range or claimed
+  twice is thrown away.
+- **A POKéMON in your hand slowly flashes.** Four shades cannot dim one, so it
+  blinks — but slowly, and lit far longer than dark, because the thing flashing
+  is the thing you are trying to look at. Two thirds of a second lit, a third
+  dark.
+- The **party** still closes up behind a POKéMON taken out of it. A party of
+  six with a hole in it is not something the rest of the game would understand.
+- The cursor no longer jumps after a drop into an empty box cell, because there
+  is nowhere else for the POKéMON to land any more.
+
 ## 1.0.6
 
 - **Full-colour menu icons are no longer wrecked by the palette pass.** The

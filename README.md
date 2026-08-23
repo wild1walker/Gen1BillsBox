@@ -130,6 +130,34 @@ exactly as many cells as a box has room, a full box has no empty cell to aim
 at — so a full party and a full box can still trade, and nothing is ever
 refused for want of space.
 
+A POKéMON in your hand **slowly flashes**. Four shades cannot dim one, so it
+blinks, but lit far longer than dark — the thing flashing is the thing you are
+trying to look at.
+
+## Gaps
+
+A POKéMON picked up **leaves its cell empty**, and one put down lands in the
+cell you aimed at. Nothing slides up behind anything, and the gaps are still
+there next time you open the box.
+
+That takes some doing, because a Gen 1 box is a *compact* array — `box[1..n]`
+with nothing after `n` — so taking one out of the middle closes it up. The
+array still is exactly that: it is the save format, it is what the engine's own
+deposit appends to, and it is what is left behind if you remove this mod. What
+this mod adds is the **arrangement**, kept beside the box in its own save data:
+one grid cell per POKéMON.
+
+The two are reconciled on every read, which is what makes it safe to bolt onto
+a shared save. Anything may add to a box behind this screen's back — a catch
+overflowing into it, another mod, an imported `.sav` — and the arrangement just
+grows to meet it: new arrivals take the lowest free cell, spare cells are
+dropped, and a cell that is out of range or claimed twice is thrown away. The
+worst case is that a box goes back to the compact order nobody could see a gap
+in anyway. No POKéMON is ever anywhere but in the box the save says it is in.
+
+The **party** is the exception and closes up as it always did. A party of six
+with a hole in it is not something the rest of the game would understand.
+
 ## BILL'S PC is BILL'S BOX
 
 The Pokémon Center PC's storage row reads **SOMEONE'S BOX** until you meet
