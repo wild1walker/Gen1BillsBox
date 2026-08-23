@@ -1,0 +1,43 @@
+-- Sharing metadata: read by tooling and the mod manager's detail pane.
+return {
+  summary = "Bill's PC, replaced by the box it was always standing in for: "
+    .. "the party down the left, twenty visible slots on the right, and a "
+    .. "cursor that carries a POKeMON.",
+  author = "wild1walker",
+  tags = { "ui", "storage", "quality-of-life", "boxes" },
+  compat = { engine = ">=0.0.0-0 <2.0.0", modApi = 2, games = { "gen1" } },
+  differences = {
+    changed = {
+      "Bill's PC opens a box grid instead of the WITHDRAW / DEPOSIT / RELEASE / CHANGE BOX menu -- it is a replacement, not a second entrance",
+      "the PC's storage row reads SOMEONE'S BOX before Bill and BILL'S BOX after, and the three lines that name the machine elsewhere follow it",
+      "withdrawing and depositing are one button press each rather than a list, a submenu and a confirmation, so neither prints its own message any more",
+      "changing box no longer offers to save: the cart's prompt was swapping an SRAM bank, and this engine keeps all twelve boxes in one save file",
+      "STATS and RELEASE moved to START, because A became pick up and put down",
+    },
+    added = {
+      "the party and the open box are visible together on one 160x144 screen: six party slots down the left, the box as a 5x4 grid of twenty",
+      "A picks a POKeMON up, puts it down, or swaps it with whatever is in the target slot",
+      "B is back and only back -- it puts a carried POKeMON down in the slot, and the box, it came from, and closes the screen only when your hands are empty",
+      "a carried POKeMON stays with the cursor across a box change, which makes a cross-box move one operation",
+      "LEFT out of the first column crosses to the party and RIGHT crosses back; SELECT does it from anywhere",
+      "UP out of the top row lands on the box header, where LEFT and RIGHT change box and A opens the twelve-box list",
+      "one line under the grid naming what the cursor is on, or 'Move to where?' while something is carried",
+      "PLACE CRY (on by default), HOLD TO MOVE (on by default) and OPEN ON, in the mod manager",
+    },
+    known = {
+      "every slot is drawn with PartyMenu.drawIcon, the engine's own party-menu icon path, so an icon mod reaches the box with nothing to configure -- and a species with no per-species icon shows the same generic shape here that it shows in the party",
+      "a box stays a COMPACT array, the shape src/pokemon/Boxes.lua and the save format use, so dropping into an empty cell appends to the end instead of leaving a hole; the cursor follows the POKeMON to where it really landed",
+      "the grid has exactly as many cells as a box has room, so a full box has no empty cell to aim at: every drop into one is a swap, which is why a full party and a full box can still trade",
+      "the party may not be emptied -- the last POKeMON cannot be picked up at all, which is the vanilla refusal enforced one step earlier so it cannot be walked around",
+      "RELEASE is offered for boxed POKeMON only, which is where the vanilla PC offers it",
+      "boxes have no names and no wallpapers; they are numbered, as they are on the cart",
+      "the party is refreshed behind you on the way out so a follower does not keep walking as the POKeMON you just deposited; with Wilds of Kanto installed its own follower is re-synced too and may reappear standing on the player until your next step",
+      "uses the engine_internals permission to keep the native save format, the summary screen, the cries and Yellow's Pikachu happiness",
+      "conflicts with Modern PC UI, which replaces the same screen id; Gen 3 Box can be installed alongside, though that is two storage screens over one save",
+    },
+  },
+  credits = {
+    { who = "Gen1Recomp", for_ = "native storage, rendering and the mod platform" },
+    { who = "Game Freak", for_ = "the box grid this is an homage to" },
+  },
+}
