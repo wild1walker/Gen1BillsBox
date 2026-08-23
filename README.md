@@ -9,13 +9,14 @@ down.
 Gen 1's PC is a menu of four verbs over a list of twenty names, and moving
 one POKéMON from box 3 to box 7 costs a withdraw, a box change and a deposit.
 This is the box the list was always standing in for — and nothing more than
-that. It is drawn in the Game Boy's own font, its four shades and its
-standard bordered boxes. No type colours, no card chrome, no widescreen
-layout. The grid is Gen 3's idea; every pixel drawing it is Gen 1's.
+that. It is drawn in the Game Boy's own font, black line art and its standard
+bordered boxes. No type colours, no card chrome, no widescreen layout. The
+grid is Gen 3's idea; every pixel drawing it is Gen 1's.
 
 The slots draw through **the party menu's own icon renderer**, so whatever
 menu sprites you already run show up in the box exactly as they show up in
-the party.
+the party — and each one gets **its own species palette**, so a box shows
+twenty sets of colours where the Game Boy could show four.
 
 ## Install
 
@@ -37,16 +38,42 @@ Requires Gen1Recomp with mod API 2. Red, Blue and Yellow.
 ┌──────────────────────────────────────┐
 │  ◀    BOX 1                  12/20 ▶ │   the header
 └──────────────────────────────────────┘
-   ▶ ()  │  [ ][ ][ ][ ][ ]
-     ()  │  [ ][ ][ ][ ][ ]              the party, then the open box
-     ()  │  [ ][ ][ ][ ][ ]
-     ()  │  [ ][ ][ ][ ][ ]
+                     ▼
+   ▶ ()  │  [()][  ][  ][  ][  ]
+     ()  │  [  ][  ][  ][  ][  ]         the party, then the open box
+     ()  │  [  ][  ][  ][  ][  ]
+     ()  │  [  ][  ][  ][  ][  ]
 ┌──────────────────────────────────────┐
 │ NIDORAN♂                        :L17 │   what the cursor is on
 └──────────────────────────────────────┘
 ```
 
 Six party slots and twenty box cells, side by side, on one 160×144 screen.
+Every cell is 24×24 and every party row 16 tall, which is three tiles and two
+— and that is a requirement rather than a preference. See **Colour** below.
+
+## Colour
+
+Two rules, and the screen falls out of them.
+
+**The chrome is black.** Every pixel this screen draws itself — the boxes, the
+grid, the arrows, the text — is shade 3, the darkest of the four Game Boy
+shades. Shade 3 is `{0,0,0}` in the grey ramp, in `MEWMON`, and in all 151
+species palettes alike, so the lines stay black whatever is laid over them.
+Shade 1 is the opposite: `MEWMON`, the palette the PC's other screens wear,
+paints it `{239,156,107}`, which is how a grey grid line comes out orange.
+
+**Each POKéMON gets its own palette.** The screen emits one SGB zone per
+POKéMON on it, carrying that species' palette, the same way the battle screen
+and the summary screen colour a mon. A species palette is white / hue / hue /
+black, so a zone laid over a cell recolours the POKéMON in it and cannot touch
+the black lines around it. This is what forces the tile-aligned layout: a zone
+is addressed in *tiles*, so a cell three and a half tiles wide cannot carry
+one at all.
+
+Your COLORS setting still decides what those palettes are — ADVANCED resolves
+per-species pokered-gbc colours, SGB the Super Game Boy ones, CLASSIC and the
+OG modes replace the lot. The screen asks; the mode answers.
 
 ## Controls
 
@@ -61,6 +88,12 @@ Six party slots and twenty box cells, side by side, on one 160×144 screen.
 | Previous / next box | LEFT and RIGHT on the header |
 | Jump to any box | A on the header |
 | STATS and RELEASE | START, over a POKéMON |
+
+The cursor in the grid is an arrow in the band above a POKéMON's head,
+pointing down at it, and the same arrow **hollow** while that POKéMON is in
+your hand. The party pane keeps the sideways cursor instead — the party
+menu's own filled and hollow glyphs — because six rows of sixteen fill that
+pane exactly and leave no band above a head to put an arrow in.
 
 A carried POKéMON stays with the cursor while you walk the header to another
 box, which is what makes a cross-box move one operation. B always means

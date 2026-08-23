@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.0.1
+
+Reported against 1.0.0: with COLORS on ADVANCED every POKéMON in the box came
+out of one salmon ramp and the grid lines came out orange, while the party
+menu next door showed each POKéMON in its own colours.
+
+- **Every POKéMON in the box and the party now wears its own species
+  palette.** 1.0.0 asked for one `MEWMON` zone over the whole screen, which is
+  what the PC's other screens wear — and `MEWMON` paints shade 1
+  `{239,156,107}`, so one ramp reached every icon at once. The screen now
+  emits a palette zone per POKéMON, the way the battle and summary screens
+  give a mon its species colours. ADVANCED was applying all along; this screen
+  was the thing not asking for it.
+- **The chrome is black instead of orange.** The orange *was* the grid: 1.0.0
+  drew its lines in shade 1, which is exactly the shade `MEWMON` paints
+  salmon. Every pixel this screen draws itself is now shade 3, which is
+  `{0,0,0}` in the grey ramp and in all 151 species palettes alike — so the
+  lines stay black under any zone laid over them, and the base palette is now
+  the plain four DMG greys.
+- **The square highlight is gone.** The cursor is a solid triangle in the band
+  above a POKéMON's head, pointing down at it, and the same triangle hollow
+  while that POKéMON is in your hand. The party pane keeps the sideways
+  cursor — the party menu's own `$ED` / `$EC` pair, filled and hollow — because
+  six rows of sixteen fill that pane exactly and leave no band above a head.
+- The grid is ruled as a table rather than as twenty separate frames, so
+  neighbouring cells share one black line instead of stacking two.
+- Cells are 24×24 at x=32 rather than 26×24 at x=30. Not cosmetic: an SGB
+  palette zone is addressed in tiles, and a cell three and a half tiles wide
+  cannot carry one. Every cell edge and party row now lands on an 8-pixel
+  boundary, which is what makes the per-POKéMON colours possible at all.
+- A carried POKéMON no longer rides a few pixels above its slot; the hollow
+  arrow is what says it is carried.
+
 ## 1.0.0
 
 First release.

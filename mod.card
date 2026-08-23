@@ -15,6 +15,8 @@ return {
       "STATS and RELEASE moved to START, because A became pick up and put down",
     },
     added = {
+      "a palette zone per POKeMON, in the grid and in the party, so each one wears its own species colours -- a box's worth at once, where the Game Boy could show four",
+      "a cursor in the band above a POKeMON's head pointing down at it, and the same arrow hollow while that POKeMON is in your hand; the party pane keeps the party menu's own sideways filled/hollow pair",
       "the party and the open box are visible together on one 160x144 screen: six party slots down the left, the box as a 5x4 grid of twenty",
       "A picks a POKeMON up, puts it down, or swaps it with whatever is in the target slot",
       "B is back and only back -- it puts a carried POKeMON down in the slot, and the box, it came from, and closes the screen only when your hands are empty",
@@ -25,6 +27,10 @@ return {
       "PLACE CRY (on by default), HOLD TO MOVE (on by default) and OPEN ON, in the mod manager",
     },
     known = {
+      "every pixel this mod draws itself is shade 3, which is {0,0,0} in the grey ramp and in all 151 species palettes alike -- that is what keeps the chrome black under a zone laid over it; shade 1 is the trap, since MEWMON paints it {239,156,107} and a grey grid line under MEWMON is an orange grid line",
+      "cells are 24x24 and party rows 16 tall because an SGB palette zone is addressed in TILES: a cell three and a half tiles wide cannot carry one at all, and carrying one per cell is the whole point",
+      "the COLORS display mode still decides what a species palette contains -- ADVANCED resolves the per-species pokered-gbc colours, CLASSIC and the OG modes replace every palette on screen; this mod asks for the zone and the mode answers",
+      "the party pane cannot take the down arrow: six rows of sixteen fill its ninety-six pixels exactly, so there is no band above a party POKeMON's head to put one in",
       "every slot is drawn with PartyMenu.drawIcon, the engine's own party-menu icon path, so an icon mod reaches the box with nothing to configure -- and a species with no per-species icon shows the same generic shape here that it shows in the party",
       "a box stays a COMPACT array, the shape src/pokemon/Boxes.lua and the save format use, so dropping into an empty cell appends to the end instead of leaving a hole; the cursor follows the POKeMON to where it really landed",
       "the grid has exactly as many cells as a box has room, so a full box has no empty cell to aim at: every drop into one is a swap, which is why a full party and a full box can still trade",

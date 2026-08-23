@@ -408,38 +408,45 @@ do
   end
   T.eq(outside, 0, "nothing is drawn outside the 160x144 screen")
 
-  -- the twenty cell tops: five columns 26 apart from x=30, four rows 24 apart
-  -- from y=24, which is the first row under the header box
-  local tops = {}
+  -- The grid is RULED as a table: six one-pixel verticals 24 apart from
+  -- x=32, four one-pixel horizontals 24 apart from y=24.  Twenty cells, but
+  -- ten lines rather than twenty frames, so neighbouring cells share one
+  -- black line instead of stacking two.
+  local lines, missing = {}, {}
   for _, r in ipairs(rects) do
-    if r.w == 26 and r.h == 1 then tops[r.x .. "," .. r.y] = true end
+    if r.w == 1 or r.h == 1 then lines[r.x .. "," .. r.y .. "," .. r.w .. "," .. r.h] = true end
   end
-  local expected, missing = 0, {}
-  for col = 0, 4 do
-    for row = 0, 3 do
-      local x, y = 30 + col * 26, 24 + row * 24
-      expected = expected + 1
-      if not tops[x .. "," .. y] then missing[#missing + 1] = x .. "," .. y end
-      if not tops[x .. "," .. (y + 23)] then
-        missing[#missing + 1] = x .. "," .. (y + 23)
-      end
-    end
+  for col = 0, 5 do
+    local key = (32 + col * 24) .. ",24,1,96"
+    if not lines[key] then missing[#missing + 1] = key end
   end
-  T.eq(expected, 20, "the grid is twenty cells")
-  T.eq(#missing, 0, "each with a top and a bottom edge (" ..
+  for row = 0, 3 do
+    local key = "32," .. (24 + row * 24) .. ",121,1"
+    if not lines[key] then missing[#missing + 1] = key end
+  end
+  T.eq(#missing, 0, "the grid is ruled as a table (" ..
     table.concat(missing, " ") .. ")")
 
-  -- the grid's last row ends exactly where the footer box begins, and its
-  -- last column exactly at the screen edge
+  -- every cell edge lands on an 8-pixel tile boundary, which is what lets
+  -- each one carry a palette zone of its own
+  local unaligned = 0
+  for col = 0, 5 do if (32 + col * 24) % 8 ~= 0 then unaligned = unaligned + 1 end end
+  for row = 0, 4 do if (24 + row * 24) % 8 ~= 0 then unaligned = unaligned + 1 end end
+  for slot = 1, 6 do
+    if (24 + (slot - 1) * 16) % 8 ~= 0 then unaligned = unaligned + 1 end
+  end
+  T.eq(unaligned, 0, "every cell and party row starts on a tile boundary")
+
+  -- the grid's last row ends exactly where the footer box begins
   T.eq(24 + 4 * 24, 120, "four rows of 24 stop at the footer")
-  T.eq(30 + 5 * 26, 160, "five columns of 26 stop at the screen edge")
+  T.eq(32 + 5 * 24, 152, "five columns of 24 leave the last tile as margin")
 
   -- the hairline between the panes runs the height of the party column
   local rule = nil
   for _, r in ipairs(rects) do
-    if r.w == 1 and r.h == 96 then rule = r end
+    if r.w == 1 and r.h == 96 and r.x == 28 then rule = r end
   end
-  T.check(rule ~= nil and rule.x == 26 and rule.y == 24,
+  T.check(rule ~= nil and rule.y == 24,
     "a one-pixel rule separates the party from the grid")
 
   -- the header and footer boxes are the standard bordered ones, three tiles
@@ -482,8 +489,8 @@ do
   local at = {}
   for _, call in ipairs(calls) do at[call.mon] = call.x .. "," .. call.y end
   T.eq(at[partyC], "8,24", "the party icon sits in the party column")
-  T.eq(at[boxA], "35,28", "the first box icon is centred in its cell")
-  T.eq(at[boxB], "61,28", "and the second is one cell to the right")
+  T.eq(at[boxA], "36,31", "the first box icon sits low in its cell, under the cursor band")
+  T.eq(at[boxB], "60,31", "and the second is one cell to the right")
   T.check(at[boxA] ~= nil and calls[1].mon ~= nil,
     "the live POKeMON table is what reaches the renderer, not a copy")
 end
@@ -508,8 +515,8 @@ do
 
   T.eq(#calls, 1, "only the carried POKeMON is drawn on the cursor's cell")
   T.eq(calls[1].mon, boxA, "and it is the carried one, not the slot's occupant")
-  T.eq(calls[1].x .. "," .. calls[1].y, "35,24",
-    "lifted four pixels, which is the margin its cell has to lift into")
+  T.eq(calls[1].x .. "," .. calls[1].y, "36,31",
+    "in the slot, not lifted -- the hollow arrow is what says it is carried")
 end
 
 
@@ -539,6 +546,146 @@ do
   down.right = false
   for _ = 1, 30 do screen:update() end
   T.eq(screen.boxSlot, 4, "and stops the moment it is let go")
+end
+
+
+-- ------- colour
+--
+-- The reported bug: with COLORS on ADVANCED every POKeMON in the box came out
+-- of the same salmon ramp and the grid lines came out orange, while the party
+-- menu next door showed each POKeMON in its own colours.  Both symptoms are
+-- one cause -- a single named zone over the whole screen.  MEWMON paints
+-- shade 1 {239,156,107}, so grey grid lines are orange lines and every icon
+-- wears one palette.
+--
+-- The fixture dataset carries no palettes, so one is injected here in the
+-- shape PaletteFX.pack reads: {palettes = {NAME = colors}, pokemon = {SPECIES
+-- = NAME}}.
+
+do
+  local P = require("src.render.PaletteFX")
+  local WHITE, BLACK = { 255, 255, 255 }, { 0, 0, 0 }
+  Data.palettes = {
+    palettes = {
+      MEWMON = { WHITE, { 239, 156, 107 }, { 115, 33, 165 }, BLACK },
+      GREENMON = { WHITE, { 99, 255, 90 }, { 255, 99, 140 }, BLACK },
+      BLUEMON = { WHITE, { 99, 123, 156 }, { 41, 66, 140 }, BLACK },
+    },
+    pokemon = { FIXMON_A = "GREENMON", FIXMON_B = "BLUEMON" },
+  }
+
+  local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B") }, { mon("FIXMON_B") })
+  local screen = factory.new(game)
+  local zones = screen:sgbPalettes(game)
+  T.check(type(zones) == "table" and zones[1] ~= nil, "the screen owns its palette")
+
+  -- the base is the plain grey ramp, so nothing this screen draws is tinted
+  local base = zones[1]
+  T.eq(base.x .. "," .. base.y .. "," .. base.w .. "," .. base.h, "0,0,160,144",
+    "the first zone covers the whole screen")
+  T.same(base.colors, P.GRAYS, "and it is the four DMG greys, not MEWMON")
+
+  -- one zone per POKeMON on screen, each carrying that species' palette
+  T.eq(#zones, 4, "plus one zone per POKeMON: two in the box, one in the party")
+  local byOrigin = {}
+  for i = 2, #zones do byOrigin[zones[i].x .. "," .. zones[i].y] = zones[i] end
+
+  local party = byOrigin["8,24"]
+  T.check(party ~= nil, "the first party row has a zone of its own")
+  T.eq(party.w .. "," .. party.h, "16,16", "two tiles square, the icon exactly")
+  T.same(party.colors, Data.palettes.palettes.BLUEMON,
+    "wearing FIXMON_B's palette")
+
+  local first = byOrigin["32,24"]
+  T.check(first ~= nil, "and so does the first box cell")
+  T.eq(first.w .. "," .. first.h, "24,24", "three tiles square, the whole cell")
+  T.same(first.colors, Data.palettes.palettes.GREENMON,
+    "wearing FIXMON_A's palette, not one shared ramp")
+  T.neq(first.colors, byOrigin["56,24"].colors,
+    "two different species do not share a palette any more")
+
+  -- every species palette is white / hue / hue / black, which is what lets
+  -- black chrome survive a zone laid over it
+  for name, colors in pairs(Data.palettes.palettes) do
+    T.same(colors[4], BLACK, name .. "'s shade 3 is black, so lines stay black")
+    T.same(colors[1], WHITE, name .. "'s shade 0 is white, so paper stays white")
+  end
+
+  -- an empty cell asks for nothing
+  local emptyCell = byOrigin["80,24"]
+  T.eq(emptyCell, nil, "an empty cell contributes no zone")
+
+  -- a carried POKeMON colours the cell it is riding over, not the one it
+  -- came out of: the pixels and the palette have to name the same POKeMON
+  drive(game, screen, "right", "a")
+  T.eq(screen.held.mon.species, "FIXMON_B", "carrying FIXMON_B")
+  local carried = {}
+  local after = screen:sgbPalettes(game)
+  for i = 2, #after do carried[after[i].x .. "," .. after[i].y] = after[i].colors end
+  T.same(carried["56,24"], Data.palettes.palettes.BLUEMON,
+    "the cursor's cell wears the carried POKeMON's palette")
+
+  Data.palettes = nil
+end
+
+-- ------- the cursor is an arrow, not a box
+--
+-- Asked for: a selector arrow over the POKeMON's head pointing down, hollow
+-- while one is in hand, in place of the square that used to ring the cell.
+
+do
+  local game = fakeGame({ mon("FIXMON_A") })
+  local screen = factory.new(game)
+
+  local function arrowRows()
+    local rects = {}
+    local real = love.graphics.rectangle
+    love.graphics.rectangle = function(mode, x, y, w, h)
+      rects[#rects + 1] = { x = x, y = y, w = w, h = h }
+    end
+    pcall(function() screen:draw() end)
+    love.graphics.rectangle = real
+    -- the cursor band is the four rows above the first cell's icon
+    local rows = {}
+    for _, r in ipairs(rects) do
+      if r.y >= 26 and r.y < 30 and r.x >= 32 and r.x < 56 and r.h == 1 then
+        rows[#rows + 1] = r
+      end
+    end
+    return rows
+  end
+
+  local solid = arrowRows()
+  T.eq(#solid, 4, "the solid cursor is four rows")
+  table.sort(solid, function(a, b) return a.y < b.y end)
+  T.eq(solid[1].w .. "," .. solid[2].w .. "," .. solid[3].w .. "," .. solid[4].w,
+    "7,5,3,1", "each row narrower than the last: a triangle pointing down")
+  T.eq(solid[1].x, 40, "centred over the cell it points into")
+
+  -- nothing rings the cell any more
+  local ringed = false
+  local rects = {}
+  local real = love.graphics.rectangle
+  love.graphics.rectangle = function(mode, x, y, w, h)
+    rects[#rects + 1] = { x = x, y = y, w = w, h = h }
+  end
+  pcall(function() screen:draw() end)
+  love.graphics.rectangle = real
+  for _, r in ipairs(rects) do
+    -- a cell-sized outline edge that is not one of the grid's own rules
+    if r.w == 24 and r.h == 1 and r.x == 32 then ringed = true end
+  end
+  T.check(not ringed, "no square highlight is drawn around the selected cell")
+
+  drive(game, screen, "a")
+  T.check(screen.held ~= nil, "with a POKeMON in hand")
+  local hollow = arrowRows()
+  table.sort(hollow, function(a, b) return a.y < b.y end)
+  T.eq(#hollow, 6, "the hollow cursor is the same outline, drawn as edges")
+  T.eq(hollow[1].w, 7, "the top row still spans the triangle")
+  local interior = 0
+  for _, r in ipairs(hollow) do if r.w > 1 and r.y > hollow[1].y then interior = interior + 1 end end
+  T.eq(interior, 0, "and every row under it is edge pixels only, so it reads hollow")
 end
 
 run.release()

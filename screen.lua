@@ -9,11 +9,22 @@
 --   rows 3-14   the party down the left, the open box as a 5x4 grid
 --   rows 15-17  one line naming what the cursor is on
 --
--- 160x144 and nothing else.  Twenty slots at 26x24 leave a 16x16 icon four
--- pixels of margin on every side, six party rows at 16 fill the same 96
--- pixels exactly, and both land on the 8-pixel tile grid the font boxes are
--- drawn from -- which is why the two panes line up top and bottom without a
--- single fractional coordinate anywhere in this file.
+-- 160x144 and nothing else.  Twenty cells of 24x24 and six party rows of 16
+-- fill the same 96 pixels between the header and the footer, and every one of
+-- those numbers is a whole count of 8-pixel tiles.  That is a hard
+-- requirement rather than tidiness: an SGB palette zone is addressed in
+-- tiles, so a cell that is three and a half tiles wide cannot carry one, and
+-- carrying one per cell is what gives every POKeMON in the box its own
+-- species colours.
+--
+-- ------- black lines, coloured POKeMON
+--
+-- Everything this screen draws itself is shade 3, the darkest DMG shade,
+-- which is {0,0,0} in the grey ramp and in all 151 species palettes alike.
+-- So the chrome is black under any zone, and a species palette laid over a
+-- cell reaches the POKeMON in it and nothing else.  Shade 1 is the trap:
+-- MEWMON, the palette the PC's other screens wear, paints it {239,156,107},
+-- which is how a grey grid line comes out orange.
 --
 -- ------- why the slots hold party icons
 --
@@ -39,6 +50,14 @@
 -- empty cell APPENDS rather than leaving a hole, and the cursor snaps to
 -- where the POKeMON actually landed instead of sitting on the cell you
 -- aimed at.  Ruby's sparse grid is the one thing here that is not copied.
+--
+-- ------- the cursor
+--
+-- In the grid it is a triangle in the band above a POKeMON's head, pointing
+-- down at it, and the same triangle hollow while that POKeMON is in your
+-- hand.  In the party it is the sideways cursor at the left of the row, the
+-- party menu's own $ED / $EC pair, because six rows of sixteen fill the pane
+-- exactly and leave no band above a head to put an arrow in.
 
 return function(mod)
   local Boxes = require("src.pokemon.Boxes")
@@ -55,34 +74,48 @@ return function(mod)
 
   -- ------- geometry
 
+  -- ------- everything here is a whole number of 8-pixel tiles
+  --
+  -- Not for tidiness: an SGB palette zone is ADDRESSED in tiles
+  -- (PaletteFX.zone takes tile coordinates), so a cell that is three and a
+  -- half tiles wide cannot carry one at all.  Giving every POKeMON on this
+  -- screen its own species colours is what forces 24 rather than 26, and it
+  -- is the whole reason the grid moved right by two pixels.
   local COLS, ROWS = 5, 4
-  local CELL_W, CELL_H = 26, 24
-  local GRID_X, GRID_Y = 30, 24
+  local CELL_W, CELL_H = 24, 24         -- 3x3 tiles
+  local GRID_X, GRID_Y = 32, 24         -- tile 4, tile row 3
 
   local PARTY_ROWS = Party.MAX          -- 6
-  local PARTY_H = 16
+  local PARTY_H = 16                    -- 2 tile rows
   local PARTY_X, PARTY_Y = 8, 24        -- the icon column; the cursor sits at 0
-  local RULE_X = 26                     -- the hairline between the two panes
+  local RULE_X = 28                     -- the hairline between the two panes
 
   local ICON = 16
-  local ICON_DX = math.floor((CELL_W - ICON) / 2)   -- 5
-  local ICON_DY = math.floor((CELL_H - ICON) / 2)   -- 4
-  -- How far a carried POKeMON rides above its slot.  A grid cell has four
-  -- pixels of margin to lift into; a party row, which is exactly one icon
-  -- tall, has none, so it gets a token two rather than climbing into the row
-  -- above it.
-  local LIFT, PARTY_LIFT = 4, 2
+  local ICON_DX = math.floor((CELL_W - ICON) / 2)   -- 4, centred
+  -- Low in the cell rather than centred: the cursor arrow lives in the band
+  -- above a POKeMON's head, so the icon gives that band the room.
+  local ICON_DY = 7
+
+  -- The cursor: a solid triangle pointing down at whatever is under it, and
+  -- the same triangle hollow while a POKeMON is in hand.  Drawn rather than
+  -- printed because the charmap has a down arrow ($EE) but no hollow twin of
+  -- it -- the hollow/filled PAIR only exists for the sideways cursor.
+  local ARROW_W, ARROW_H = 7, 4
+  local ARROW_DX = math.floor((CELL_W - ARROW_W) / 2)  -- 8
+  local ARROW_DY = 2
 
   local HEADER_TH = 3                   -- tiles
   local INFO_TY = 15                    -- tiles
   local INFO_TEXT_Y = (INFO_TY + 1) * 8 -- 128
   local TEXT_LEFT, TEXT_RIGHT = 8, 152
 
-  -- The four DMG shades the extracted art is drawn in; shade 1 is the
-  -- engine's own grey (src/ui/PartyMenu.lua's OBP bake keys on the same
-  -- 170).  Nothing here invents a colour: the SGB pass below paints the
-  -- finished frame.
-  local GREY = { 170 / 255, 170 / 255, 170 / 255 }
+  -- Every pixel this screen draws itself is shade 3, the darkest of the four
+  -- DMG shades.  That is what keeps the chrome BLACK: shade 3 is {0,0,0} in
+  -- the grey ramp, in MEWMON, and in all 151 species palettes alike
+  -- (data/palettes_gbc.lua), so a species zone laid over a cell colours the
+  -- POKeMON in it and cannot touch the lines around it.  Shade 1 is the
+  -- opposite -- MEWMON paints it {239,156,107} -- which is exactly how a
+  -- grey grid line came out orange.
   local BLACK = { 0, 0, 0 }
 
   -- ui.list_menu's own hold-to-scroll cadence (src/ui/ListMenu.lua), in
@@ -108,20 +141,29 @@ return function(mod)
     love.graphics.setColor(shade[1], shade[2], shade[3], 1)
   end
 
-  -- A one-pixel outline as four fills.  `rectangle("line", ...)` lands on
-  -- half-pixel boundaries on this canvas; four fills cannot.
-  local function frame(x, y, w, h)
-    love.graphics.rectangle("fill", x, y, w, 1)
-    love.graphics.rectangle("fill", x, y + h - 1, w, 1)
-    love.graphics.rectangle("fill", x, y + 1, 1, h - 2)
-    love.graphics.rectangle("fill", x + w - 1, y + 1, 1, h - 2)
-  end
-
-  -- A 4x7 solid triangle: the box arrows.  dir 1 points right, -1 left.
+  -- A 4x7 solid triangle: the box header's arrows.  dir 1 points right, -1
+  -- left.
   local function triangle(x, y, dir)
     for i = 0, 3 do
       local px = dir > 0 and (x + i) or (x + 3 - i)
       love.graphics.rectangle("fill", px, y + i, 1, 7 - i * 2)
+    end
+  end
+
+  -- The cursor: a 7x4 triangle pointing down.  Solid is "the cursor is here";
+  -- hollow is "and it is carrying something", which is the same filled/unfilled
+  -- distinction the party menu's own two cursor glyphs carry ($ED and $EC).
+  local function downArrow(x, y, hollow)
+    for row = 0, ARROW_H - 1 do
+      local left, width = x + row, ARROW_W - row * 2
+      if not hollow or width <= 2 then
+        love.graphics.rectangle("fill", left, y + row, width, 1)
+      elseif row == 0 then
+        love.graphics.rectangle("fill", left, y + row, width, 1)
+      else
+        love.graphics.rectangle("fill", left, y + row, 1, 1)
+        love.graphics.rectangle("fill", left + width - 1, y + row, 1, 1)
+      end
     end
   end
 
@@ -184,14 +226,53 @@ return function(mod)
     return self
   end
 
-  -- The PC's screens colour as one region (src/ui/ListMenu.lua does the same
-  -- with the same palette).  Saying so matters more here than it does for a
-  -- menu: this screen is opaque, so with no opinion of its own the topmost
-  -- state that HAS one is the overworld underneath, and the box would come
-  -- out wearing the map's palette.
+  -- ------- colour
+  --
+  -- Two rules, and the screen falls out of them.
+  --
+  -- The BASE is the plain four DMG greys, so everything this screen draws
+  -- itself -- boxes, grid, arrows, text, all shade 3 -- comes out black on
+  -- white.  A named palette here does not: MEWMON, which is what the PC's
+  -- other screens wear, paints shade 1 a salmon {239,156,107}, so a grey
+  -- grid line under it is an orange grid line.
+  --
+  -- Then EACH POKeMON GETS ITS OWN, the way the battle screen and the summary
+  -- screen give a mon its species palette.  Twenty-six zones is the point of
+  -- the whole tile-aligned layout above: the Game Boy could show four
+  -- palettes at once and this shows a box's worth.  A species palette is
+  -- white / hue / hue / black, so laying one over a whole cell recolours the
+  -- POKeMON and leaves the black lines around it alone.
+  --
+  -- Answering at all is not optional: this screen is opaque, so with no
+  -- opinion of its own the topmost state that HAS one is the overworld
+  -- underneath, and the box would come out wearing the map's palette.
   function Screen:sgbPalettes(game)
     local ok, zones = pcall(function()
-      return require("src.render.PaletteFX").wholeNamed(game.data, "MEWMON")
+      local P = require("src.render.PaletteFX")
+      local out = { P.whole(P.GRAYS) }
+
+      local function paint(mon, tx1, ty1, tx2, ty2)
+        if not mon then return end
+        local colors = P.monPal(game.data, mon.species)
+        local zone = colors and P.zone(colors, tx1, ty1, tx2, ty2)
+        if zone then out[#out + 1] = zone end
+      end
+
+      -- the party icons, two tiles square each
+      for i = 1, PARTY_ROWS do
+        local ty = (PARTY_Y + (i - 1) * PARTY_H) / 8
+        paint(self:monDrawnAt("party", i), PARTY_X / 8, ty,
+              PARTY_X / 8 + 1, ty + 1)
+      end
+
+      -- the grid, three tiles square each
+      for slot = 1, COLS * ROWS do
+        local tx = (GRID_X + ((slot - 1) % COLS) * CELL_W) / 8
+        local ty = (GRID_Y + math.floor((slot - 1) / COLS) * CELL_H) / 8
+        paint(self:monDrawnAt("box", slot), tx, ty, tx + 2, ty + 2)
+      end
+
+      return out
     end)
     return ok and zones or nil
   end
@@ -224,6 +305,17 @@ return function(mod)
 
   function Screen:monAt(pane)
     return self:listFor(pane)[self:slotIndex(pane)]
+  end
+
+  -- Which POKeMON is actually SHOWN in a given slot, which is not always the
+  -- one the list holds: a carried POKeMON rides the cursor and covers the
+  -- slot it is over.  Drawing and the palette pass both read this, so the
+  -- colours can never come from a different POKeMON than the pixels.
+  function Screen:monDrawnAt(pane, slot)
+    if self.held and self.pane == pane and self:slotIndex(pane) == slot then
+      return self.held.mon
+    end
+    return self:listFor(pane)[slot]
   end
 
   -- ------- talking to the player
@@ -682,63 +774,62 @@ return function(mod)
     ink(BLACK)
     Font.drawBox(0, 0, 20, HEADER_TH)
     local focused = self.pane == "header"
-    ink(focused and BLACK or GREY)
+    ink(BLACK)
     triangle(8, 8, -1)
     triangle(148, 8, 1)
-    ink(BLACK)
     if focused then Font.drawCode(Theme.cursor, 16, 8) end
     Font.draw(Strings("BOX %d", game.save.currentBox), 24, 8)
     local count = ("%d/%d"):format(#Boxes.active(game.save), Boxes.CAPACITY)
     Font.draw(count, 144 - Font.width(count), 8)
   end
 
+  -- The party keeps the SIDEWAYS cursor rather than the grid's down arrow,
+  -- and not for want of trying: six rows of sixteen fill the pane's ninety-six
+  -- pixels exactly, so there is no band above a party POKeMON's head to put an
+  -- arrow in.  A column of entries with the cursor to their left is the party
+  -- menu's own idiom anyway, down to the glyph pair -- $ED filled, $EC hollow
+  -- while something is in hand.
   function Screen:drawParty()
-    local party = self:listFor("party")
     for i = 1, PARTY_ROWS do
       local y = PARTY_Y + (i - 1) * PARTY_H
       local selected = self.pane == "party" and self.partySlot == i
-      local carried = selected and self.held ~= nil
-      -- A carried POKeMON rides the cursor and covers the slot it is over,
-      -- rather than being drawn on top of whatever lives there: an icon
-      -- lifted a few pixels over another icon is two overlapping blobs, and
-      -- which one you are holding is the thing that has to stay readable.
-      if carried then
-        self:drawIcon(self.held.mon, PARTY_X, y - PARTY_LIFT, true)
-      else
-        self:drawIcon(party[i], PARTY_X, y, selected)
-      end
+      self:drawIcon(self:monDrawnAt("party", i), PARTY_X, y, selected)
       if selected then
-        -- the party's own cursor, in the column the party menu keeps it in
-        -- (PartyMenuInit's wTopMenuItemX = 0)
         ink(BLACK)
-        Font.drawCode(Theme.cursor, 0, y + 4)
+        Font.drawCode(self.held and Theme.cursorHollow or Theme.cursor,
+                      0, y + 4)
       end
     end
-    ink(GREY)
+    ink(BLACK)
     love.graphics.rectangle("fill", RULE_X, PARTY_Y, 1, PARTY_ROWS * PARTY_H)
   end
 
   function Screen:drawGrid()
-    local box = self:listFor("box")
+    -- Ruled as a TABLE, not as twenty separate frames: adjacent frames put two
+    -- black columns between neighbouring cells, and at this size that reads as
+    -- a thick smudge rather than a grid.  Six verticals and four horizontals,
+    -- one pixel each.  The bottom is left open because the footer box's own
+    -- border sits immediately under it and closes the grid for free.
+    ink(BLACK)
+    local height = ROWS * CELL_H
+    for col = 0, COLS do
+      love.graphics.rectangle("fill", GRID_X + col * CELL_W, GRID_Y, 1, height)
+    end
+    for row = 0, ROWS - 1 do
+      love.graphics.rectangle("fill", GRID_X, GRID_Y + row * CELL_H,
+                              COLS * CELL_W + 1, 1)
+    end
+
     for slot = 1, COLS * ROWS do
-      local col = (slot - 1) % COLS
-      local row = math.floor((slot - 1) / COLS)
-      local x = GRID_X + col * CELL_W
-      local y = GRID_Y + row * CELL_H
-      local selected = self.pane == "box" and self.boxSlot == slot
-      local carried = selected and self.held ~= nil
-      -- every cell is drawn, empty or not: twenty visible slots is what
-      -- makes this a box rather than a list with pictures
-      ink(GREY)
-      frame(x, y, CELL_W, CELL_H)
-      if carried then
-        self:drawIcon(self.held.mon, x + ICON_DX, y + ICON_DY - LIFT, true)
-      else
-        self:drawIcon(box[slot], x + ICON_DX, y + ICON_DY, selected)
-      end
-      if selected then
+      local x = GRID_X + ((slot - 1) % COLS) * CELL_W
+      local y = GRID_Y + math.floor((slot - 1) / COLS) * CELL_H
+      self:drawIcon(self:monDrawnAt("box", slot), x + ICON_DX, y + ICON_DY,
+                    self.pane == "box" and self.boxSlot == slot)
+      if self.pane == "box" and self.boxSlot == slot then
+        -- the cursor sits in the band over the POKeMON's head and points at
+        -- it; hollow says the POKeMON under it is the one in your hand
         ink(BLACK)
-        frame(x, y, CELL_W, CELL_H)
+        downArrow(x + ARROW_DX, y + ARROW_DY, self.held ~= nil)
       end
     end
   end
