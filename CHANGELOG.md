@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.6
+
+- **Full-colour menu icons are no longer wrecked by the palette pass.** The
+  SGB pass remaps four DMG shades to four colours keyed off each pixel's *red*
+  channel. Run authored full-colour art through that and it is not recoloured,
+  it is destroyed: BEEDRILL's orange has red near 1.0, lands on shade 0, and is
+  painted the palette's white. That is why the box's icons never matched the
+  party menu's - and it had been wrong since 1.0.0, through both the `MEWMON`
+  ramp and the per-species zones that replaced it.
+- The engine's answer is `PaletteFX.markTrueColor`, which appends the region to
+  the zone list to be re-blit with no shader over the colourised pass. Nothing
+  in `PartyMenu.drawIcon` calls it: the screens that draw full-colour art mark
+  it themselves. This screen now does too, and skips the species zone for
+  those icons.
+- Decided per icon by reading the **pixels** of whatever `drawIcon` resolves,
+  which is the only test a mod cannot route around - the icons registry, a
+  species record's own `icon`, an asset override and the `pokemon.icon` hook
+  all end in a file, and the file either carries colour or it does not. A
+  built-in icon *class* is never full colour whatever file it points at,
+  because `drawIcon` bakes those to grey through `obpIcon`.
+- Vanilla DMG icons are unaffected and still get their species palette.
+
 ## 1.0.5
 
 - **Reverts 1.0.3's cell placement.** Centring the icon vertically was paid

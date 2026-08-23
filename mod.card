@@ -29,6 +29,8 @@ return {
       "PLACE CRY (on by default), HOLD TO MOVE (on by default) and OPEN ON, in the mod manager",
     },
     known = {
+      "authored full-colour icons are marked with PaletteFX.markTrueColor and given no species zone, because the SGB pass keys each pixel off its RED channel and would paint an orange POKeMON white rather than recolouring it; nothing in PartyMenu.drawIcon marks them, so the screen drawing them has to",
+      "which icons those are is decided by reading the pixels of whatever the icon path resolves to -- the one test the icons registry, a species record's own icon, an asset override and the pokemon.icon hook cannot route around; a built-in icon CLASS is never full colour, because drawIcon bakes those to grey through obpIcon",
       "asked for as Gen 2 behaviour, though Gold does the opposite: a full party AND a full current box refuses the throw there (Ball_BoxIsFullMessage) and Bill rings you when a box fills; advancing to the next box with room is Gen 3's answer, and it is the right one on an engine that already refuses to lose the catch",
       "the note says which actually happened -- 'Now using BOX n.' when the open box followed, 'Stored in BOX n.' when SWITCH ON FULL is off -- so it can never claim a switch that did not occur",
       "the icon is centred ACROSS the cell but deliberately not down it: a gap, the 4-pixel cursor, a gap, the 16-pixel icon and a gap do not fit in the 23 pixels between two rules with any slack left over, and the gaps that must not go to zero are the ends -- an arrow drawn on the rule reads as a smear on the grid, and an icon on the next rule sits on the line",

@@ -71,6 +71,16 @@ the black lines around it. This is what forces the tile-aligned layout: a zone
 is addressed in *tiles*, so a cell three and a half tiles wide cannot carry
 one at all.
 
+**Except art that is already in colour.** If your icons come from a mod that
+draws them full-colour rather than in the Game Boy's four shades, a palette
+zone would not recolour them - it would destroy them, because the pass keys
+each pixel off its *red* channel and an orange pixel lands on the palette's
+white. Those icons are marked so the pass re-blits them untouched, and get no
+species zone at all. Which icons those are is decided by reading the pixels of
+whatever the icon path actually resolves to, so it works the same whether the
+art arrived through the icons registry, a species record's own `icon`, an
+asset override or the `pokemon.icon` hook.
+
 Your COLORS setting still decides what those palettes are — ADVANCED resolves
 per-species pokered-gbc colours, SGB the Super Game Boy ones, CLASSIC and the
 OG modes replace the lot. The screen asks; the mode answers.

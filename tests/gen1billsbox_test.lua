@@ -873,5 +873,106 @@ do
     "with the arrow clear of both side rules")
 end
 
+
+-- ------- full-colour icons must sit out the shade remap
+--
+-- The reported bug, twice over.  The SGB pass remaps four DMG shades to four
+-- colours keyed off each pixel's RED channel; run authored full-colour art
+-- through it and an orange POKeMON (red near 1.0, so shade 0) is painted the
+-- palette's white.  The engine's answer is PaletteFX.markTrueColor, and
+-- nothing in PartyMenu.drawIcon calls it -- the screen drawing the art has to.
+--
+-- Decided per icon by looking at the PIXELS of whatever drawIcon will resolve,
+-- because that is the only test a mod cannot route around: the icons registry,
+-- a species record's own `icon`, an asset override and the pokemon.icon hook
+-- all end in a file, and the file either carries colour or it does not.
+
+do
+  local P = require("src.render.PaletteFX")
+  local WHITE, BLACK = { 255, 255, 255 }, { 0, 0, 0 }
+
+  Data.icons = {
+    -- a mod's own image: reaches the screen untouched, and this one is colour
+    bySpecies = { FIXMON_A = { image = "mods/pack/vivid_a.png" },
+                  -- a built-in icon CLASS: drawIcon bakes it grey through
+                  -- obpIcon whatever file it points at, so never full colour
+                  FIXMON_B = "MON" },
+    icons = { MON = "assets/icons/mon.png" },
+    byDex = {},
+  }
+  Data.palettes = {
+    palettes = { MEWMON = { WHITE, { 239, 156, 107 }, { 115, 33, 165 }, BLACK },
+                 GREENMON = { WHITE, { 99, 255, 90 }, { 255, 99, 140 }, BLACK } },
+    pokemon = { FIXMON_A = "GREENMON", FIXMON_B = "GREENMON" },
+  }
+
+  -- a fake decoder: files named "vivid" carry colour, everything else is grey
+  local FakeData = {}
+  FakeData.__index = FakeData
+  function FakeData:getDimensions() return self.w, self.h end
+  function FakeData:getPixel()
+    if self.colour then return 1, 0.4, 0.1, 1 end
+    return 0.5, 0.5, 0.5, 1
+  end
+  local realNewImageData = love.image.newImageData
+  love.image.newImageData = function(a, ...)
+    local name = type(a) == "table" and (a.name or a.path) or tostring(a)
+    return setmetatable({ w = 16, h = tostring(name):find("tall", 1, true) and 32 or 16,
+                          colour = tostring(name):find("vivid", 1, true) ~= nil },
+                        FakeData)
+  end
+
+  local vivid, plain = mon("FIXMON_A"), mon("FIXMON_B")
+  local game = fakeGame({ vivid, plain })
+  local screen = factory.new(game)
+
+  -- the palette pass leaves the full-colour one alone and still colours the
+  -- ordinary one
+  local zones = screen:sgbPalettes(game)
+  local byOrigin = {}
+  for i = 2, #zones do byOrigin[zones[i].x .. "," .. zones[i].y] = zones[i] end
+  T.eq(byOrigin["32,24"], nil,
+    "a full-colour icon gets no species zone -- it would be paint nobody sees")
+  T.check(byOrigin["56,24"] ~= nil,
+    "an ordinary DMG icon still gets one")
+  T.same(byOrigin["56,24"].colors, Data.palettes.palettes.GREENMON,
+    "carrying that species' palette")
+
+  -- and the draw marks the full-colour one so the pass re-blits it unshaded
+  local marks = {}
+  local realMark = P.markTrueColor
+  P.markTrueColor = function(x, y, w, h)
+    marks[#marks + 1] = x .. "," .. y .. "," .. w .. "," .. h
+  end
+  pcall(function() screen:draw() end)
+  P.markTrueColor = realMark
+
+  T.eq(#marks, 1, "exactly one region is claimed as full colour")
+  T.eq(marks[1], "36,31,16,16",
+    "the full-colour icon's own rect, where drawIcon put it")
+
+  -- a taller sheet is drawn as a 16x16 frame, so only that is claimed
+  love.image.newImageData = function(a, ...)
+    local name = type(a) == "table" and (a.name or a.path) or tostring(a)
+    return setmetatable({ w = 16, h = 32, colour = true }, FakeData)
+  end
+  Data.icons.bySpecies.FIXMON_C = { image = "mods/pack/vivid_tall.png" }
+  local tall = mon("FIXMON_C")
+  local game2 = fakeGame({ tall })
+  local screen2 = factory.new(game2)
+  marks = {}
+  P.markTrueColor = function(x, y, w, h)
+    marks[#marks + 1] = x .. "," .. y .. "," .. w .. "," .. h
+  end
+  pcall(function() screen2:draw() end)
+  P.markTrueColor = realMark
+  T.eq(marks[1], "36,31,16,16",
+    "a two-frame sheet claims the frame that was drawn, not the whole file")
+
+  love.image.newImageData = realNewImageData
+  Data.icons = nil
+  Data.palettes = nil
+end
+
 run.release()
 T.finish("Gen1BillsBox")
