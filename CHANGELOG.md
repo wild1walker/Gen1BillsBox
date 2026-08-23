@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.3
+
+- **The POKéMON are centred in their cells.** 1.0.2 sat them 6 pixels below
+  the rule above and 1 above the rule below — pushed hard against the bottom
+  of the cell — because the cursor band was taking its room out of the top.
+  Margins are now 3 and 4 on both axes, which is as centred as a 16-pixel icon
+  gets inside the 23 pixels between two rules.
+- **The cursor hangs from the rule above the cell** instead of floating in the
+  middle of the gap, so it costs the icon no room and its tip lands on the row
+  directly above the POKéMON's head. Its flat top row is drawn onto that rule,
+  which leaves a solid wedge showing when the cursor is resting and two thin
+  diagonals when it is carrying — a bigger difference than filling or not
+  filling a top edge was.
+- The arrow is now centred on the *icon* rather than on the cell, so the two
+  stay together if either ever moves.
+
 ## 1.0.2
 
 - **A POKéMON caught into a full box now says where it went.** The overflow

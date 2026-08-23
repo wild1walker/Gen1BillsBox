@@ -90,19 +90,33 @@ return function(mod)
   local PARTY_X, PARTY_Y = 8, 24        -- the icon column; the cursor sits at 0
   local RULE_X = 28                     -- the hairline between the two panes
 
+  -- A cell is 24 wide with its own rule at 0 and its neighbour's at 24, so
+  -- what the eye reads as the cell is the 23 pixels between them.  Sixteen
+  -- does not centre in twenty-three, so the icon sits 3 in from one side and
+  -- 4 from the other on BOTH axes -- half a pixel off, the same half a pixel
+  -- in each direction, which is as centred as the grid can be.
   local ICON = 16
-  local ICON_DX = math.floor((CELL_W - ICON) / 2)   -- 4, centred
-  -- Low in the cell rather than centred: the cursor arrow lives in the band
-  -- above a POKeMON's head, so the icon gives that band the room.
-  local ICON_DY = 7
+  local ICON_DX = math.floor((CELL_W - ICON) / 2)   -- 4
+  local ICON_DY = math.floor((CELL_H - ICON) / 2)   -- 4
 
   -- The cursor: a solid triangle pointing down at whatever is under it, and
   -- the same triangle hollow while a POKeMON is in hand.  Drawn rather than
   -- printed because the charmap has a down arrow ($EE) but no hollow twin of
   -- it -- the hollow/filled PAIR only exists for the sideways cursor.
+  --
+  -- It HANGS FROM THE RULE above the cell: its flat top row is drawn straight
+  -- onto that line, which is why it costs the icon no room and lets the icon
+  -- centre.  What is left showing under the line is a solid triangle when the
+  -- cursor is resting and two thin diagonals when it is carrying, which is a
+  -- far bigger difference than filling or not filling a four-pixel top edge
+  -- would have been.
+  --
+  -- Centred on the ICON rather than on the cell, because "above them" is what
+  -- it is pointing at; with the icon centred the two work out the same, and
+  -- saying it this way keeps them together if either ever moves.
   local ARROW_W, ARROW_H = 7, 4
-  local ARROW_DX = math.floor((CELL_W - ARROW_W) / 2)  -- 8
-  local ARROW_DY = 2
+  local ARROW_DX = ICON_DX + math.floor((ICON - ARROW_W) / 2)  -- 8
+  local ARROW_DY = 0
 
   local HEADER_TH = 3                   -- tiles
   local INFO_TY = 15                    -- tiles

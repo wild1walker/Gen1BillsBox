@@ -89,9 +89,12 @@ OG modes replace the lot. The screen asks; the mode answers.
 | Jump to any box | A on the header |
 | STATS and RELEASE | START, over a POKéMON |
 
-The cursor in the grid is an arrow in the band above a POKéMON's head,
-pointing down at it, and the same arrow **hollow** while that POKéMON is in
-your hand. The party pane keeps the sideways cursor instead — the party
+The cursor in the grid is an arrow that hangs from the rule above the cell,
+pointing down at the POKéMON's head, and the same arrow **hollow** while that
+POKéMON is in your hand. Hanging it from the rule is what lets the POKéMON
+itself stay centred: a 16-pixel icon inside the 23 pixels between two rules
+sits 3 in from one side and 4 from the other, the same on both axes, and the
+cursor takes none of that. The party pane keeps the sideways cursor instead — the party
 menu's own filled and hollow glyphs — because six rows of sixteen fill that
 pane exactly and leave no band above a head to put an arrow in.
 
