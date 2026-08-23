@@ -15,6 +15,7 @@ return {
       "STATS and RELEASE moved to START, because A became pick up and put down",
     },
     added = {
+      "a BOX row on the START menu opening the same screen the PC opens, with the onCancel every vanilla start-menu submenu takes so B brings the START menu back (BOX ON START)",
       "gaps: a POKeMON picked up leaves its cell empty and one put down lands in the cell you aimed at, with the arrangement kept beside the box in this mod's own save data and reconciled with it on every read",
       "a POKeMON in your hand slowly flashes -- lit far longer than dark, because the thing flashing is the thing you are trying to look at",
       "the open box follows a catch that overflowed, so the PC stops opening on a box with no room in it and the next catch lands directly in one with space (SWITCH ON FULL)",
@@ -31,6 +32,7 @@ return {
       "PLACE CRY (on by default), HOLD TO MOVE (on by default) and OPEN ON, in the mod manager",
     },
     known = {
+      "the START row is the one reach beyond the cart here, which wanted a PC in front of you -- so it has a switch; the party still cannot be emptied from it, so there is no stranding yourself in tall grass with nothing to send out",
       "the party still closes up behind a POKeMON taken out of it, because a party of six with a hole in it is not something the rest of the game would understand; only the boxes take gaps",
       "anything may add to a box behind this screen's back -- a catch overflowing into it, another mod, an imported .sav -- so the arrangement is reconciled with the box on every read: new arrivals take the lowest free cell, spare cells are dropped, and a cell out of range or claimed twice is thrown away",
       "authored full-colour icons are marked with PaletteFX.markTrueColor and given no species zone, because the SGB pass keys each pixel off its RED channel and would paint an orange POKeMON white rather than recolouring it; nothing in PartyMenu.drawIcon marks them, so the screen drawing them has to",

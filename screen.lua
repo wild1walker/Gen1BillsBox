@@ -452,10 +452,16 @@ return function(mod)
   -- waits underneath for the B that closes this.
   Screen.isOpaque = true
 
-  function Screen.new(game)
+  -- opts.onCancel is the engine's own start-menu idiom: every vanilla submenu
+  -- takes one and calls it on B so the START menu comes back
+  -- (RedisplayStartMenu, and `reopen` in src/ui/StartMenu.lua).  The PC pushes
+  -- this screen with no opts at all, so B there still just uncovers the PC's
+  -- own menu, which was already waiting underneath.
+  function Screen.new(game, opts)
     Boxes.ensure(game.save)
     local self = setmetatable({}, Screen)
     self.game = game
+    self.onCancel = type(opts) == "table" and opts.onCancel or nil
     -- "box" | "party" | "header"
     self.pane = option("startPane", "box") == "party" and "party" or "box"
     -- the pane the header came from, so DOWN goes back where you were
@@ -960,6 +966,7 @@ return function(mod)
 
   function Screen:close()
     self.game.stack:pop()
+    if self.onCancel then self.onCancel() end
   end
 
   -- Buttons are read BEFORE the held direction, not after.  A repeat tick and

@@ -98,6 +98,7 @@ OG modes replace the lot. The screen asks; the mode answers.
 | Previous / next box | LEFT and RIGHT on the header |
 | Jump to any box | A on the header |
 | STATS and RELEASE | START, over a POKéMON |
+| Open the box without a PC | **BOX** on the START menu |
 
 The cursor in the grid is an arrow in the band above a POKéMON's head,
 pointing down at it, and the same arrow **hollow** while that POKéMON is in
@@ -158,6 +159,19 @@ in anyway. No POKéMON is ever anywhere but in the box the save says it is in.
 The **party** is the exception and closes up as it always did. A party of six
 with a hole in it is not something the rest of the game would understand.
 
+## Opening it from the START menu
+
+A **BOX** row sits on the START menu next to POKéMON, opening the same screen
+BILL'S BOX opens — no PC in front of you required. B brings the START menu back
+the way it does from POKéDEX, POKéMON, ITEM and the trainer card, because the
+screen takes the same `onCancel` those do.
+
+This is the one thing here that is a genuine reach beyond the cart, which
+wanted you standing at a PC, so **BOX ON START** turns it off. Note that the
+party can still never be emptied from it — the last POKéMON cannot be picked
+up at all — so there is no way to strand yourself in tall grass with nothing to
+send out.
+
 ## BILL'S PC is BILL'S BOX
 
 The Pokémon Center PC's storage row reads **SOMEONE'S BOX** until you meet
@@ -186,6 +200,7 @@ In the mod manager's row for this mod:
 | **OPEN ON** | BOX | Which side the cursor starts on. |
 | **FULL BOX NOTE** | on | One line after a catch that overflowed, naming the box it actually went to. See below. |
 | **SWITCH ON FULL** | on | The open box follows a catch that overflowed, instead of staying on the full one. |
+| **BOX ON START** | on | A BOX row on the START menu, opening the same screen the PC opens. |
 
 ## Catching into a full box
 

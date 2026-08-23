@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.8
+
+- **A BOX row on the START menu**, opening the same screen the PC opens. It
+  sits with POKéMON, which is what it is about, and B brings the START menu
+  back the way every other start-menu submenu does (`RedisplayStartMenu`).
+- New option **BOX ON START** (on) removes it. It is a real change to where
+  storage can be reached from — the cart wanted a PC in front of you — so it
+  gets a switch.
+- The screen now takes the `onCancel` the engine's own start-menu submenus
+  take. Opened from the PC there is none, so B there still just uncovers the
+  PC's own menu, which was waiting underneath all along.
+
 ## 1.0.7
 
 - **Boxes are a real grid now: gaps stay put.** Picking a POKéMON up used to

@@ -49,6 +49,11 @@ return function(mod)
     -- it, and every later catch walks past that box again.
     { key = "switchOnFull", label = "SWITCH ON FULL", type = "toggle",
       default = true },
+    -- A BOX row on the START menu.  On by default because it was asked for,
+    -- and off is here because it IS a change to where storage can be reached
+    -- from: the cart wanted a PC in front of you.
+    { key = "startRow", label = "BOX ON START", type = "toggle",
+      default = true },
   })
 
   local function option(key, fallback)
@@ -126,6 +131,48 @@ return function(mod)
       end
     end
     return out
+  end)
+
+  -- ------- a BOX row on the START menu
+  --
+  -- The same screen the PC opens, reached without one in front of you.  It is
+  -- given the onCancel every vanilla start-menu submenu is given, so B brings
+  -- the START menu back rather than dropping you into the overworld -- that is
+  -- RedisplayStartMenu, and `reopen` in src/ui/StartMenu.lua does it for
+  -- POKeDEX, POKeMON, ITEM and the trainer card alike.
+  --
+  -- Placed after POKeMON, because that is what it is about; before SAVE if
+  -- this game has no POKeMON row to anchor on, and at the end if it has
+  -- neither.  Anchoring on the label through Strings() rather than on a
+  -- position means a translated menu still puts it in the right place, and a
+  -- menu another mod has rearranged still gets the row somewhere reachable.
+  --
+  -- next() first, so another mod's rows survive.
+  local function insertBoxRow(items, row)
+    for _, anchor in ipairs({ Strings("POKéMON"), Strings("SAVE") }) do
+      for i, entry in ipairs(items) do
+        if type(entry) == "table" and entry.label == anchor then
+          -- after POKeMON, before SAVE
+          table.insert(items, anchor == Strings("SAVE") and i or i + 1, row)
+          return items
+        end
+      end
+    end
+    table.insert(items, row)
+    return items
+  end
+
+  mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
+    local out = next(game, items)
+    if type(out) ~= "table" or not option("startRow", true) then return out end
+    return insertBoxRow(out, {
+      label = Strings("BOX"),
+      onSelect = function()
+        mod.ui.push(game, "BoxMenu", {
+          onCancel = function() mod.ui.push(game, "StartMenu") end,
+        })
+      end,
+    })
   end)
 
   -- ------- and so are the lines the PC prints

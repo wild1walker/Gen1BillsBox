@@ -1105,5 +1105,80 @@ do
     "and B goes back into the slot it came from")
 end
 
+
+-- ------- the BOX row on the START menu
+
+do
+  local function startRows(withDex)
+    local rows = {}
+    if withDex then rows[#rows + 1] = { label = "POKéDEX" } end
+    rows[#rows + 1] = { label = "POKéMON" }
+    rows[#rows + 1] = { label = "ITEM" }
+    rows[#rows + 1] = { label = "RED" }
+    rows[#rows + 1] = { label = "SAVE" }
+    rows[#rows + 1] = { label = "OPTION" }
+    rows[#rows + 1] = { label = "QUIT" }
+    return rows
+  end
+
+  local out = Runtime.call("ui.start_menu.items", passthru, {}, startRows(true))
+  T.eq(labels(out), "POKéDEX|POKéMON|BOX|ITEM|RED|SAVE|OPTION|QUIT",
+    "the BOX row sits with POKéMON, which is what it is about")
+
+  -- the row opens the same screen the PC opens
+  local pushed = {}
+  local Screens = require("src.ui.Screens")
+  local realPush = Screens.push
+  Screens.push = function(_, id, opts) pushed[#pushed + 1] = { id = id, opts = opts } end
+  for _, row in ipairs(out) do
+    if row.label == "BOX" then row.onSelect() end
+  end
+  Screens.push = realPush
+  T.eq(#pushed, 1, "choosing it opens one screen")
+  T.eq(pushed[1].id, "BoxMenu",
+    "the BoxMenu id, so it is this mod's screen and not a second one")
+  T.eq(type(pushed[1].opts.onCancel), "function",
+    "with the onCancel every vanilla start-menu submenu is given")
+
+  -- B on the box brings the START menu back, the way RedisplayStartMenu does
+  pushed = {}
+  Screens.push = function(_, id) pushed[#pushed + 1] = id end
+  local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
+  local screen = factory.new(game, { onCancel = function()
+    Screens.push(game, "StartMenu")
+  end })
+  game.stack:push(screen)
+  drive(game, screen, "b")
+  Screens.push = realPush
+  T.check(game.stack:top() ~= screen, "B closes the box")
+  T.eq(pushed[1], "StartMenu", "and the START menu comes back")
+
+  -- opened from the PC there is no onCancel, so B just uncovers the PC's own
+  -- menu, which was waiting underneath all along
+  local plain = factory.new(fakeGame({}))
+  T.eq(plain.onCancel, nil, "the PC opens it with nothing to come back to")
+
+  -- a menu with no POKéMON row still gets the row, before SAVE
+  local odd = Runtime.call("ui.start_menu.items", passthru, {},
+    { { label = "ITEM" }, { label = "SAVE" }, { label = "QUIT" } })
+  T.eq(labels(odd), "ITEM|BOX|SAVE|QUIT",
+    "a menu with no POKéMON row anchors on SAVE instead")
+
+  -- and one with neither still gets it somewhere reachable
+  local odder = Runtime.call("ui.start_menu.items", passthru, {},
+    { { label = "SOMETHING ELSE" } })
+  T.eq(labels(odder), "SOMETHING ELSE|BOX",
+    "a menu with neither anchor still gets the row")
+
+  -- another mod's row survives, because the wrap calls next() first
+  local shared = Runtime.call("ui.start_menu.items", function(_, items)
+    table.insert(items, 1, { label = "DEXNAV" })
+    return items
+  end, {}, startRows(false))
+  T.eq(labels(shared), "DEXNAV|POKéMON|BOX|ITEM|RED|SAVE|OPTION|QUIT",
+    "another mod's start-menu row survives the wrap")
+end
+
 run.release()
 T.finish("Gen1BillsBox")
