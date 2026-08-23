@@ -90,33 +90,41 @@ return function(mod)
   local PARTY_X, PARTY_Y = 8, 24        -- the icon column; the cursor sits at 0
   local RULE_X = 28                     -- the hairline between the two panes
 
+  -- ------- the one place the cell has no slack
+  --
   -- A cell is 24 wide with its own rule at 0 and its neighbour's at 24, so
-  -- what the eye reads as the cell is the 23 pixels between them.  Sixteen
-  -- does not centre in twenty-three, so the icon sits 3 in from one side and
-  -- 4 from the other on BOTH axes -- half a pixel off, the same half a pixel
-  -- in each direction, which is as centred as the grid can be.
+  -- what the eye reads as the cell is the 23 pixels between them.
+  --
+  -- Horizontally that is roomy: a 16-pixel icon sits 3 in from one side and 4
+  -- from the other, which is as centred as sixteen gets inside twenty-three.
+  --
+  -- Vertically it is not, and this is worth spelling out because getting it
+  -- wrong once already cost a release.  The column has to hold a gap, the
+  -- 4-pixel cursor, a gap, the 16-pixel icon and a gap, in 23 pixels -- three
+  -- pixels of slack for three gaps.  Spending them anywhere but 1/1/1 takes a
+  -- gap to zero, and the two that must not go to zero are the ends: an arrow
+  -- with no gap above it is drawn ON the rule and reads as a smear on the
+  -- grid rather than as a cursor, and an icon with no gap below it sits on the
+  -- next rule.  1.0.4 spent all three on centring the icon and lost the arrow
+  -- into the line above it.
+  --
+  -- So the icon is NOT vertically centred, deliberately: it is one pixel off
+  -- the bottom rule with the cursor's band above it, which is the only
+  -- arrangement that leaves every edge clear.
   local ICON = 16
   local ICON_DX = math.floor((CELL_W - ICON) / 2)   -- 4
-  local ICON_DY = math.floor((CELL_H - ICON) / 2)   -- 4
+  local ICON_DY = 7
 
   -- The cursor: a solid triangle pointing down at whatever is under it, and
   -- the same triangle hollow while a POKeMON is in hand.  Drawn rather than
   -- printed because the charmap has a down arrow ($EE) but no hollow twin of
   -- it -- the hollow/filled PAIR only exists for the sideways cursor.
   --
-  -- It HANGS FROM THE RULE above the cell: its flat top row is drawn straight
-  -- onto that line, which is why it costs the icon no room and lets the icon
-  -- centre.  What is left showing under the line is a solid triangle when the
-  -- cursor is resting and two thin diagonals when it is carrying, which is a
-  -- far bigger difference than filling or not filling a four-pixel top edge
-  -- would have been.
-  --
   -- Centred on the ICON rather than on the cell, because "above them" is what
-  -- it is pointing at; with the icon centred the two work out the same, and
-  -- saying it this way keeps them together if either ever moves.
+  -- it is pointing at, and so the two stay together if either ever moves.
   local ARROW_W, ARROW_H = 7, 4
   local ARROW_DX = ICON_DX + math.floor((ICON - ARROW_W) / 2)  -- 8
-  local ARROW_DY = 0
+  local ARROW_DY = 2
 
   local HEADER_TH = 3                   -- tiles
   local INFO_TY = 15                    -- tiles

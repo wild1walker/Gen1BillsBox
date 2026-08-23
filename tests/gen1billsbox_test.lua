@@ -489,8 +489,8 @@ do
   local at = {}
   for _, call in ipairs(calls) do at[call.mon] = call.x .. "," .. call.y end
   T.eq(at[partyC], "8,24", "the party icon sits in the party column")
-  T.eq(at[boxA], "36,28", "the first box icon is centred in its cell")
-  T.eq(at[boxB], "60,28", "and the second is one cell to the right")
+  T.eq(at[boxA], "36,31", "the first box icon sits under the cursor band")
+  T.eq(at[boxB], "60,31", "and the second is one cell to the right")
   T.check(at[boxA] ~= nil and calls[1].mon ~= nil,
     "the live POKeMON table is what reaches the renderer, not a copy")
 end
@@ -515,7 +515,7 @@ do
 
   T.eq(#calls, 1, "only the carried POKeMON is drawn on the cursor's cell")
   T.eq(calls[1].mon, boxA, "and it is the carried one, not the slot's occupant")
-  T.eq(calls[1].x .. "," .. calls[1].y, "36,28",
+  T.eq(calls[1].x .. "," .. calls[1].y, "36,31",
     "in the slot, not lifted -- the hollow arrow is what says it is carried")
 end
 
@@ -648,8 +648,7 @@ do
     -- the cursor band is the four rows above the first cell's icon
     local rows = {}
     for _, r in ipairs(rects) do
-      if r.y >= 24 and r.y < 28 and r.x >= 32 and r.x < 56 and r.h == 1
-          and r.w < 24 then
+      if r.y >= 26 and r.y < 30 and r.x >= 32 and r.x < 56 and r.h == 1 then
         rows[#rows + 1] = r
       end
     end
@@ -834,40 +833,44 @@ do
 end
 
 
--- ------- and both are actually centred
+-- ------- every edge of the cell stays clear
 --
--- Asserted as MARGINS rather than as coordinates, because "centred" is a
--- relationship and a coordinate is not: 1.0.2 had the icon 6 pixels below the
--- rule above it and 1 above the rule below it, which is a perfectly good
--- coordinate and badly off centre.
+-- 1.0.4 centred the icon vertically and drew the cursor's flat top row
+-- straight onto the rule above it, where it read as a smear on the grid
+-- rather than as a cursor.  The lesson is that the vertical column has no
+-- slack to spend: a gap, a 4-pixel arrow, a gap, a 16-pixel icon and a gap,
+-- inside the 23 pixels between two rules, is three pixels for three gaps.
+-- These assert the CLEARANCES rather than the coordinates, because the
+-- clearances are the thing that was wrong and a coordinate test passed it.
 
 do
-  local CELL, ICON, ARROW_W = 24, 16, 7
-  local iconDX, iconDY = 4, 4
-  local arrowDX, arrowDY = 8, 0
+  local CELL, ICON, ARROW_H, ARROW_W = 24, 16, 4, 7
+  local iconDX, iconDY = 4, 7
+  local arrowDX, arrowDY = 8, 2
+  local interior = CELL - 1        -- the pixels between this rule and the next
 
-  -- the eye reads the cell as the pixels BETWEEN the two rules
-  local interior = CELL - 1
+  -- the two ends, which are what 1.0.4 got wrong
+  T.check(arrowDY - 1 >= 1, "the arrow clears the rule above it")
+  T.check(interior - (iconDY + ICON - 1) >= 1, "and the icon clears the rule below it")
 
+  -- the arrow points at the head without overlapping it
+  local headGap = iconDY - (arrowDY + ARROW_H)
+  T.check(headGap >= 0, "the arrow does not overlap the icon")
+  T.check(headGap <= 1, "and does not float away from it either")
+
+  -- there is genuinely no room to do better: the three gaps use every pixel
+  T.eq((arrowDY - 1) + ARROW_H + headGap + ICON
+       + (interior - (iconDY + ICON - 1)), interior,
+    "the column is spent to the pixel, which is why the icon cannot also centre")
+
+  -- horizontally there IS room, and it is used
   local left = iconDX - 1
-  local right = (interior) - (iconDX + ICON - 1)
-  local top = iconDY - 1
-  local bottom = (interior) - (iconDY + ICON - 1)
-  T.eq(left .. "," .. right, "3,4", "the icon's left and right margins are 3 and 4")
-  T.eq(top .. "," .. bottom, "3,4", "and its top and bottom are the same 3 and 4")
-  T.eq(math.abs(left - right), 1, "so it is off centre by half a pixel, not by five")
-  T.eq(left .. "," .. top, right - 1 .. "," .. bottom - 1,
-    "and off by the same half pixel on both axes, which is what centred means here")
-
-  -- the arrow is centred on the POKeMON, not merely on the cell
-  local iconCentre = iconDX + ICON / 2
-  local arrowCentre = arrowDX + ARROW_W / 2
-  T.check(math.abs(iconCentre - arrowCentre) <= 0.5,
-    "the arrow's centre line is the icon's, within half a pixel")
-
-  -- and it points AT the head rather than floating above it
-  T.eq(arrowDY + 4, iconDY, "the arrow's tip row is the row above the icon")
-  T.eq(arrowDY, 0, "its flat top is drawn onto the rule, so it costs the icon no room")
+  local right = interior - (iconDX + ICON - 1)
+  T.eq(left .. "," .. right, "3,4", "the icon is centred across the cell, within half a pixel")
+  T.check(math.abs((iconDX + ICON / 2) - (arrowDX + ARROW_W / 2)) <= 0.5,
+    "and the arrow's centre line is the icon's")
+  T.check(arrowDX >= 1 and arrowDX + ARROW_W - 1 <= interior,
+    "with the arrow clear of both side rules")
 end
 
 run.release()

@@ -18,7 +18,7 @@ return {
       "the open box follows a catch that overflowed, so the PC stops opening on a box with no room in it and the next catch lands directly in one with space (SWITCH ON FULL)",
       "one line after a catch that overflowed, naming the box that was full and the box the POKeMON actually went to -- only when those differ, so an ordinary catch stays as quiet as it was",
       "a palette zone per POKeMON, in the grid and in the party, so each one wears its own species colours -- a box's worth at once, where the Game Boy could show four",
-      "a cursor hanging from the rule above the cell, pointing down at the POKeMON's head, and the same arrow hollow while that POKeMON is in your hand; the party pane keeps the party menu's own sideways filled/hollow pair",
+      "a cursor in the band above a POKeMON's head pointing down at it, and the same arrow hollow while that POKeMON is in your hand; the party pane keeps the party menu's own sideways filled/hollow pair",
       "the party and the open box are visible together on one 160x144 screen: six party slots down the left, the box as a 5x4 grid of twenty",
       "A picks a POKeMON up, puts it down, or swaps it with whatever is in the target slot",
       "B is back and only back -- it puts a carried POKeMON down in the slot, and the box, it came from, and closes the screen only when your hands are empty",
@@ -31,7 +31,7 @@ return {
     known = {
       "asked for as Gen 2 behaviour, though Gold does the opposite: a full party AND a full current box refuses the throw there (Ball_BoxIsFullMessage) and Bill rings you when a box fills; advancing to the next box with room is Gen 3's answer, and it is the right one on an engine that already refuses to lose the catch",
       "the note says which actually happened -- 'Now using BOX n.' when the open box followed, 'Stored in BOX n.' when SWITCH ON FULL is off -- so it can never claim a switch that did not occur",
-      "a 16-pixel icon does not centre in the 23 pixels between two rules, so it sits 3 in from one side and 4 from the other -- the same half pixel on both axes, which is why the cursor hangs from the rule rather than taking its room out of the top of the cell",
+      "the icon is centred ACROSS the cell but deliberately not down it: a gap, the 4-pixel cursor, a gap, the 16-pixel icon and a gap do not fit in the 23 pixels between two rules with any slack left over, and the gaps that must not go to zero are the ends -- an arrow drawn on the rule reads as a smear on the grid, and an icon on the next rule sits on the line",
       "the overflow itself is the ENGINE's, not this mod's: src/pokemon/Boxes.lua's deposit already walks from the open box forward through all twelve and wraps, and a catch only fails once all 240 places are taken; what this mod adds is the line that says which box it landed in",
       "the box number cannot go into the transfer line itself -- that text is ROM-extracted and filled from the caller's arguments, and the battle passes exactly one, so a second slot fails RomText's arity check and drops the line back to the engine's English",
       "every pixel this mod draws itself is shade 3, which is {0,0,0} in the grey ramp and in all 151 species palettes alike -- that is what keeps the chrome black under a zone laid over it; shade 1 is the trap, since MEWMON paints it {239,156,107} and a grey grid line under MEWMON is an orange grid line",

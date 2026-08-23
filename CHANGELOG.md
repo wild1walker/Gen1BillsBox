@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.5
+
+- **Reverts 1.0.3's cell placement.** Centring the icon vertically was paid
+  for out of the cursor's clearance, and the cursor's flat top row ended up
+  drawn straight onto the rule above the cell, where it read as a smear on the
+  grid rather than as an arrow. The POKéMON and the arrow are back where 1.0.2
+  had them.
+- The cell's vertical column has no slack to spend: a gap, the 4-pixel cursor,
+  a gap, the 16-pixel icon and a gap, inside the 23 pixels between two rules,
+  is three pixels for three gaps. 1/1/1 is the only split that leaves both
+  ends clear, so the icon is centred across the cell and deliberately not down
+  it. That is now written down in the source, the README and the card, and
+  pinned by assertions on the *clearances* rather than on the coordinates —
+  1.0.3's coordinates were perfectly good and the arrow was still in the line.
+
 ## 1.0.4
 
 - **The open box now follows a catch that overflowed.** Catch into a full box
