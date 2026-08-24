@@ -1,4 +1,12 @@
-# Gen1BillsBox
+<p align="center">
+  <a href="https://wild1walker.github.io/Gen1Wild/"><img src="docs/banner.png" alt="Gen1Wild" width="400"></a>
+</p>
+
+<h1 align="center">Gen1BillsBox</h1>
+
+<p align="center">
+  <a href="https://wild1walker.github.io/Gen1Wild/"><img src="docs/lineup.png" alt="Check out my other mods!" width="880"></a>
+</p>
 
 A Gen 3-style storage screen for
 [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp) that **replaces**
