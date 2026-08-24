@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.0.10
+
+- **SELECT over the box opens SORT.** COLLAPSE, BY DEX, BY LEVEL (strongest
+  first), BY NAME, BY TYPE — and **UNDO**, one step, offered only while it
+  would actually work.
+- Every sort ends the same way, with the box closed up into cells 1..n, so
+  **COLLAPSE is just the sort that changes no order** and the rest are that
+  plus a reordering. Which is also why COLLAPSE reads the *cells*: the compact
+  array's order stopped meaning anything the moment gaps existed, so "keep what
+  I can see, just close it up" is a sort like any other.
+- Ties keep the order you already had. `table.sort` is not stable, so each
+  POKéMON's current cell is carried alongside and used as the last word rather
+  than hoped for.
+- **SELECT from the party still crosses to the box**, which makes the pair read
+  as one key — SELECT gets you there, SELECT again tidies it — and costs
+  nothing, because LEFT and RIGHT already cross the panes.
+- SORT is refused while a POKéMON is in your hand: a box reordering itself
+  around one that is not in it reads as the box shuffling for no reason.
+- UNDO checks the box still holds the same POKéMON *by identity*, not by count.
+  One released and one caught leaves the count alone, and that is exactly the
+  case a count check would wave through — and would have resurrected the
+  released one.
+
 ## 1.0.9
 
 - **The party takes gaps too, while the box is open.** Pick one out of the

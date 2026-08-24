@@ -404,18 +404,29 @@ do
   T.eq(game.stack:top(), nil, "closing the list behind it")
 end
 
--- SELECT crosses the screen without walking the cursor back to column one
+-- SELECT belongs to the box: it opens SORT there, and is still the shortcut
+-- across the middle of the screen from the party
 do
   local game = fakeGame({ mon("FIXMON_A") }, { mon("FIXMON_B") })
   forgetGrid()
   local screen = factory.new(game)
-  drive(game, screen, "right", "right", "select")
-  T.eq(screen.pane, "party", "SELECT crosses to the party")
+
+  drive(game, screen, "left")
+  T.eq(screen.pane, "party", "in the party")
   drive(game, screen, "select")
-  T.eq(screen.pane, "box", "and back")
+  T.eq(screen.pane, "box", "SELECT crosses to the box")
+  T.eq(game.stack:top(), nil, "without opening anything")
+
+  drive(game, screen, "right", "right", "select")
+  local menu = game.stack:top()
+  T.check(menu ~= nil and type(menu.items) == "table",
+    "SELECT again opens the sort menu")
   T.eq(screen.boxSlot, 3, "leaving the box cursor where it was")
+  game.stack:pop()
+
   drive(game, screen, "up", "select")
-  T.eq(screen.pane, "party", "and from the header it still changes sides")
+  T.check(game.stack:top() ~= nil, "and the header counts as the box side")
+  game.stack:pop()
 end
 
 
@@ -1249,6 +1260,129 @@ do
   end, {}, startRows(false))
   T.eq(labels(shared), "DEXNAV|POKéMON|BOX|ITEM|RED|SAVE|OPTION|QUIT",
     "another mod's start-menu row survives the wrap")
+end
+
+
+-- ------- SORT
+--
+-- Every sort ends the same way -- the box closed up into cells 1..n -- so
+-- COLLAPSE is the sort that changes no order and the rest are that plus a
+-- reordering.  Which is also why COLLAPSE has to read the CELLS: the compact
+-- array's order stopped meaning anything the moment gaps existed.
+--
+-- The fixture species are FIXMON_A (dex 1, GRASS), FIXMON_B (dex 2, FIRE) and
+-- FIXMON_C (dex 3, WATER), so dex, name and type each order them differently.
+
+do
+  forgetGrid()
+  local game = fakeGame({ mon("FIXMON_A", 30), mon("FIXMON_B", 5),
+                          mon("FIXMON_C", 50) })
+  local screen = factory.new(game)
+  T.eq(grid(screen), "ABC" .. string.rep(".", 17), "A, B, C in the first three")
+
+  -- move B out to cell 5, leaving a hole at two
+  drive(game, screen, "right", "a", "right", "right", "right", "a")
+  T.eq(grid(screen), "A.C.B" .. string.rep(".", 15), "a box with a hole in it")
+
+  -- COLLAPSE closes the gaps and keeps the order you can see
+  screen:sortBox("collapse")
+  T.eq(grid(screen), "ACB" .. string.rep(".", 17),
+    "COLLAPSE closes the gaps without reordering what you could see")
+  T.eq(#game.save.boxes[1], 3, "with all three still there")
+
+  -- BY DEX
+  screen:sortBox("dex")
+  T.eq(grid(screen), "ABC" .. string.rep(".", 17), "BY DEX is dex order")
+
+  -- BY LEVEL, strongest first: C is 50, A is 30, B is 5
+  screen:sortBox("level")
+  T.eq(grid(screen), "CAB" .. string.rep(".", 17), "BY LEVEL puts the strongest first")
+
+  -- BY NAME: the nicknames here are the species ids, so A, B, C
+  screen:sortBox("name")
+  T.eq(grid(screen), "ABC" .. string.rep(".", 17), "BY NAME is alphabetical")
+
+  -- BY TYPE, alphabetical: FIRE (B), GRASS (A), WATER (C)
+  screen:sortBox("type")
+  T.eq(grid(screen), "BAC" .. string.rep(".", 17), "BY TYPE groups by primary type")
+
+  -- and every one of them left the box closed up
+  T.eq(#game.save.boxes[1], 3, "no POKeMON was created or lost by sorting")
+end
+
+-- UNDO puts back the order AND the gaps
+do
+  forgetGrid()
+  local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B"), mon("FIXMON_C") })
+  local screen = factory.new(game)
+  drive(game, screen, "right", "a", "right", "right", "right", "a")
+  local before = grid(screen)
+  T.eq(before, "A.C.B" .. string.rep(".", 15), "a box with a hole in it")
+
+  T.check(not screen:canUndoSort(), "nothing to undo before the first sort")
+  screen:sortBox("dex")
+  T.eq(grid(screen), "ABC" .. string.rep(".", 17), "sorted")
+  T.check(screen:canUndoSort(), "and now there is")
+
+  screen:undoSort()
+  T.eq(grid(screen), before, "UNDO restores the order and the gaps together")
+  T.check(not screen:canUndoSort(), "and is spent")
+end
+
+-- UNDO refuses once the box is not the one the snapshot was taken of
+do
+  forgetGrid()
+  local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B") })
+  local screen = factory.new(game)
+  screen:sortBox("dex")
+  T.check(screen:canUndoSort(), "a snapshot is held")
+
+  -- another box is not this one
+  game.save.currentBox = 2
+  T.check(not screen:canUndoSort(), "and it is not offered for a different box")
+  game.save.currentBox = 1
+
+  -- one released and one caught leaves the COUNT alone, which is exactly the
+  -- case a count check would wave through and identity does not
+  table.remove(game.save.boxes[1])
+  game.save.boxes[1][#game.save.boxes[1] + 1] = mon("FIXMON_C")
+  T.check(not screen:canUndoSort(),
+    "nor when the box holds a different POKeMON of the same number")
+end
+
+-- the sort menu offers UNDO only when it would work, and never sorts around a
+-- POKeMON that is in your hand
+do
+  forgetGrid()
+  local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B") })
+  local screen = factory.new(game)
+
+  drive(game, screen, "select")
+  local menu = game.stack:top()
+  T.eq(labels(menu.items), "COLLAPSE|BY DEX|BY LEVEL|BY NAME|BY TYPE|CANCEL",
+    "no UNDO row before anything has been sorted")
+  game.stack:pop()
+
+  screen:sortBox("dex")
+  drive(game, screen, "select")
+  menu = game.stack:top()
+  T.eq(labels(menu.items),
+    "COLLAPSE|BY DEX|BY LEVEL|BY NAME|BY TYPE|UNDO|CANCEL",
+    "and an UNDO row once there is something to undo")
+
+  -- choosing one closes the menu and does the work
+  for _, item in ipairs(menu.items) do
+    if item.value == "collapse" then menu.onChoose(item, menu) end
+  end
+  T.eq(game.stack:top(), nil, "choosing a row closes the menu")
+  game.stack.states = {}
+
+  -- with something in hand there is no menu at all
+  drive(game, screen, "a")
+  T.check(screen.held ~= nil, "carrying one")
+  drive(game, screen, "select")
+  T.eq(game.stack:top(), nil,
+    "SELECT opens nothing while a POKeMON is in your hand")
 end
 
 run.release()

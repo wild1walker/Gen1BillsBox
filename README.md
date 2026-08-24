@@ -90,7 +90,8 @@ OG modes replace the lot. The screen asks; the mode answers.
 | Action | Control |
 | --- | --- |
 | Move the cursor | D-pad |
-| Cross to the party / back to the box | LEFT out of the first column, RIGHT out of the party — or SELECT from anywhere |
+| Cross to the party / back to the box | LEFT out of the first column, RIGHT out of the party — or SELECT from the party |
+| Sort or tidy the open box | SELECT, on the box side |
 | Pick a POKéMON up, put it down, swap two | A |
 | Put a carried POKéMON back where it came from | B |
 | Close the box | B, with nothing in hand |
@@ -134,6 +135,32 @@ refused for want of space.
 A POKéMON in your hand **slowly flashes**. Four shades cannot dim one, so it
 blinks, but lit far longer than dark — the thing flashing is the thing you are
 trying to look at.
+
+## Sorting
+
+**SELECT** over the box opens SORT:
+
+| Row | What it does |
+| --- | --- |
+| **COLLAPSE** | Closes the gaps up, keeping the order you can see. |
+| **BY DEX** | Pokédex number. |
+| **BY LEVEL** | Strongest first. |
+| **BY NAME** | Alphabetical, by nickname where there is one. |
+| **BY TYPE** | Grouped by primary type, alphabetically — the data carries type *names* rather than the cart's numbering, so there is no other order to honour. |
+| **UNDO** | One step, and only while it would still work. |
+
+Every sort ends the same way — the box closed up into cells 1..n — so COLLAPSE
+is simply the sort that changes no order, and the rest are that plus a
+reordering. Ties keep the order you already had.
+
+SORT is refused while a POKéMON is in your hand, and UNDO is offered only when
+the box still holds exactly the POKéMON the snapshot was taken of — checked by
+identity, not by count, because one released and one caught leaves the count
+alone and would otherwise let UNDO resurrect the released one.
+
+SELECT from the *party* still crosses to the box, so the pair reads as one key:
+SELECT gets you there, SELECT again tidies it. Nothing is lost, because LEFT
+and RIGHT already cross the panes.
 
 ## Gaps
 

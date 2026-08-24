@@ -448,6 +448,59 @@ return function(mod)
     return was
   end
 
+  -- ------- sorting a box
+  --
+  -- Every sort ENDS the same way -- the box closed up into cells 1..n -- so
+  -- COLLAPSE is just the sort that changes no order, and the others are that
+  -- plus a reordering.  Which is also why COLLAPSE has to sort by the current
+  -- CELL first: the compact array's order stopped meaning anything the moment
+  -- gaps existed, so "keep what I can see, just close it up" is a sort like
+  -- any other.
+  --
+  -- Every comparison falls back to the current cell, which makes each one
+  -- stable in the way that matters to someone looking at it: POKeMON that tie
+  -- keep the order they were already in.  table.sort is not itself stable, so
+  -- the cell is carried alongside and used as the last word rather than hoped
+  -- for.
+  local SORT_LABELS = {
+    { "COLLAPSE", "collapse" },
+    { "BY DEX", "dex" },
+    { "BY LEVEL", "level" },
+    { "BY NAME", "name" },
+    { "BY TYPE", "type" },
+  }
+
+  local function sortKey(game, mode, entry)
+    local mon = entry.mon
+    local def = defOf(game, mon)
+    if mode == "dex" then return (def and def.dex) or math.huge end
+    -- strongest first, which is what a box is usually being tidied for
+    if mode == "level" then return -(tonumber(mon.level) or 0) end
+    if mode == "name" then return nameOf(game, mon) end
+    -- the primary type, alphabetically: the data carries type names rather
+    -- than the cart's numbering, so there is no other order to honour
+    if mode == "type" then
+      local types = def and def.types
+      return tostring(types and types[1] or "")
+    end
+    return entry.cell
+  end
+
+  -- Is this box still holding exactly the POKeMON the snapshot was taken of?
+  -- Identity, not count: one released and one caught leaves the count alone
+  -- and would otherwise let UNDO resurrect the released one.
+  local function sameMembers(list, snapshot)
+    if #list ~= #snapshot then return false end
+    local left = {}
+    for _, mon in ipairs(snapshot) do left[mon] = (left[mon] or 0) + 1 end
+    for _, mon in ipairs(list) do
+      local n = left[mon]
+      if not n or n == 0 then return false end
+      left[mon] = n - 1
+    end
+    return true
+  end
+
   -- ------- and where in the PARTY pane each one sits
   --
   -- The same idea, and deliberately not the same mechanism.
@@ -567,6 +620,8 @@ return function(mod)
     -- one row per party member, in order, rebuilt fresh every time the screen
     -- opens -- a gap in the party is a working arrangement, not a decision to
     -- keep
+    -- one step of undo for the last sort, for as long as this screen is open
+    self.sortUndo = nil
     self.partyRow = {}
     for j = 1, #(game.save.party or {}) do self.partyRow[j] = j end
     return self
@@ -930,6 +985,91 @@ return function(mod)
     end
   end
 
+  -- ------- SORT
+
+  function Screen:sortBox(mode)
+    local game = self.game
+    local save = game.save
+    local boxNumber = save.currentBox
+    local list = Boxes.ensure(save)[boxNumber]
+    local cells = layoutFor(save, boxNumber)
+
+    -- one step of undo, and only for this box: changing box while a snapshot
+    -- is held would otherwise offer to restore another box's order
+    local snapshot = { box = boxNumber, mons = {}, cells = {} }
+    for j = 1, #list do
+      snapshot.mons[j] = list[j]
+      snapshot.cells[j] = cells[j]
+    end
+
+    local order = {}
+    for j = 1, #list do order[j] = { mon = list[j], cell = cells[j] } end
+    for _, entry in ipairs(order) do
+      entry.key = sortKey(game, mode, entry)
+    end
+    table.sort(order, function(a, b)
+      if a.key ~= b.key then return a.key < b.key end
+      return a.cell < b.cell
+    end)
+
+    for j = 1, #order do
+      list[j] = order[j].mon
+      cells[j] = j
+    end
+    for j = #order + 1, #cells do cells[j] = nil end
+
+    self.sortUndo = snapshot
+  end
+
+  function Screen:canUndoSort()
+    local undo = self.sortUndo
+    if not undo or undo.box ~= self.game.save.currentBox then return false end
+    return sameMembers(Boxes.ensure(self.game.save)[undo.box], undo.mons)
+  end
+
+  function Screen:undoSort()
+    if not self:canUndoSort() then return end
+    local undo = self.sortUndo
+    self.sortUndo = nil
+    local save = self.game.save
+    local list = Boxes.ensure(save)[undo.box]
+    local cells = layoutFor(save, undo.box)
+    for j = 1, #undo.mons do
+      list[j] = undo.mons[j]
+      cells[j] = undo.cells[j]
+    end
+    for j = #undo.mons + 1, #cells do cells[j] = nil end
+  end
+
+  -- SELECT over the box.  Refused with a POKeMON in hand, because a sort that
+  -- reordered the box around one that is not in it reads as the box shuffling
+  -- itself for no reason.
+  function Screen:openSortMenu()
+    if self.held then return end
+    local game = self.game
+    local items = {}
+    for _, row in ipairs(SORT_LABELS) do
+      items[#items + 1] = { label = Strings(row[1]), value = row[2] }
+    end
+    if self:canUndoSort() then
+      items[#items + 1] = { label = Strings("UNDO"), value = "undo" }
+    end
+    items[#items + 1] = { label = Strings("CANCEL"), value = "cancel" }
+
+    game.stack:push(ListMenu.new(game, Strings("SORT BOX"), items, {
+      noSound = true,
+      kind = "gen1billsbox_sort",
+      onChoose = function(item, list)
+        if item.value == "undo" then
+          self:undoSort()
+        elseif item.value ~= "cancel" then
+          self:sortBox(item.value)
+        end
+        list:close()
+      end,
+    }))
+  end
+
   -- ------- the submenu, the box list, and RELEASE
 
   function Screen:openSummary(mon)
@@ -1087,15 +1227,15 @@ return function(mod)
     elseif input:wasPressed("start") then
       self:openActions()
     elseif input:wasPressed("select") then
-      -- a shortcut across the middle of the screen, for the deposit that
-      -- would otherwise walk the cursor back to column one every time.  From
-      -- the header it crosses to whichever pane the header was not reached
-      -- from, so SELECT always changes which side you are on.
-      local target = self.pane == "party" and "box" or "party"
-      if self.pane == "header" then
-        target = self.lastPane == "party" and "box" or "party"
+      -- SELECT belongs to the BOX: it opens SORT.  From the party it is still
+      -- the shortcut across the middle of the screen, which makes the pair
+      -- read as one key -- SELECT gets you to the box, SELECT again tidies it
+      -- -- and costs nothing, because LEFT and RIGHT already cross the panes.
+      if self.pane == "party" then
+        self.pane, self.lastPane = "box", "box"
+      else
+        self:openSortMenu()
       end
-      self.pane, self.lastPane = target, target
     else
       local dir = self:direction()
       if dir then self:move(dir) end
