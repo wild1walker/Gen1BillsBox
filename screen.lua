@@ -75,7 +75,6 @@
 return function(mod)
   local Boxes = require("src.pokemon.Boxes")
   local Font = require("src.render.Font")
-  local ListMenu = require("src.ui.ListMenu")
   local Menu = require("src.ui.Menu")
   local Party = require("src.pokemon.Party")
   local PartyMenu = require("src.ui.PartyMenu")
@@ -1172,25 +1171,44 @@ return function(mod)
   -- this engine keeps all twelve boxes in one save file (src/pokemon/
   -- Boxes.lua), so the "data will be saved" step the cart needed to swap a
   -- SRAM bank has nothing left to do.
+  --
+  -- A bordered pop-up, like SORT and like the rows START opens: ui.list_menu
+  -- draws its default mode as a bare 160x144 fill with no frame at all (only
+  -- its itemBox mode has a border, and that is the bag's fixed four-row
+  -- geometry), so a decorated twelve-row list has to be a Menu.
+  local BOX_LIST_VISIBLE = 6
+
   function Screen:openBoxList()
     local game = self.game
     local boxes = Boxes.ensure(game.save)
     local items = {}
     for i = 1, Boxes.COUNT do
+      -- Menu draws one label per row and has no second column, so how full
+      -- a box is goes into the label -- fixed width, so the counts line up
+      -- under each other the way ui.list_menu's right column did.
       items[#items + 1] = {
-        label = Strings("%sBOX %2d", i == game.save.currentBox and "*" or " ", i),
-        right = ("%d/%d"):format(#boxes[i], Boxes.CAPACITY),
+        label = Strings("%sBOX %2d %2d/%d",
+          i == game.save.currentBox and "*" or " ", i,
+          #boxes[i], Boxes.CAPACITY),
         value = i,
+        onSelect = function() game.save.currentBox = i end,
       }
     end
-    game.stack:push(ListMenu.new(game, Strings("CHANGE BOX"), items, {
+
+    -- Twelve rows at the vanilla two tiles each would need 26 of the 18 tile
+    -- rows there are, so the box shows six and scrolls; it hangs from the
+    -- bottom edge, which leaves the header naming the open box uncovered.
+    local th = BOX_LIST_VISIBLE * 2 + 2
+    local menu = Menu.new(game, items, {
+      tx = 4, ty = math.max(0, 18 - th), tw = 16, th = th,
+      maxVisible = BOX_LIST_VISIBLE, title = Strings("CHANGE BOX"),
       noSound = true,
-      kind = "gen1billsbox_change",
-      onChoose = function(item, list)
-        game.save.currentBox = item.value
-        list:close()
-      end,
-    }))
+    })
+    -- open on the box you are in rather than on BOX 1: with only half the
+    -- list visible, starting anywhere else hides where you are
+    menu.index = game.save.currentBox
+    menu:clampScroll()
+    game.stack:push(menu)
   end
 
   -- ------- input

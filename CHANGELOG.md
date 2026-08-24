@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.12
+
+- **CHANGE BOX is a bordered pop-up too.** A on the box header used to open a
+  full-screen list with no frame around it — the engine's list widget draws its
+  default mode as a bare 160×144 fill and only its *item box* mode has a
+  border, and that one is the bag's fixed four-row geometry. So the box list is
+  now the same bordered widget SORT and the per-POKéMON rows use, hanging from
+  the bottom edge with the header naming the open box still visible above it.
+- Six of the twelve rows are shown at a time and the rest scroll, because
+  twelve rows at the vanilla two tiles each would need 26 of the 18 tile rows
+  there are. The list **opens on the box you are already in** rather than on
+  BOX 1 — with half of it visible, starting anywhere else hides where you are.
+- How full each box is moved into its row's label, right-aligned in fixed
+  columns so the counts still line up under each other: the bordered widget
+  draws one label per row and has no second column for them.
+
 ## 1.0.11
 
 - **The flash is faster** — 16 steps lit, 8 dark, where it was 40 and 20. Still

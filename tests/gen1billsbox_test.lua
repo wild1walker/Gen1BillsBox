@@ -398,8 +398,41 @@ do
   T.check(list ~= nil and type(list.items) == "table",
     "A on the header opens the box list")
   T.eq(#list.items, Boxes.COUNT, "with a row per box")
-  T.eq(list.items[1].right, "1/" .. Boxes.CAPACITY, "each saying how full it is")
-  list.onChoose(list.items[7], list)
+  T.check(list.items[1].label:find("1/" .. Boxes.CAPACITY, 1, true) ~= nil,
+    "each saying how full it is")
+
+  -- a bordered pop-up like SORT: framed, inside the screen, hanging from the
+  -- bottom edge so the header naming the open box stays visible, and showing
+  -- part of the twelve rather than growing past the 18 tile rows there are
+  T.eq(list.ty + list.th, 18, "with its bottom edge on the last row")
+  T.check(list.tx + list.tw <= 20, "and inside the screen")
+  T.check(list.maxVisible ~= nil and list.maxVisible < Boxes.COUNT,
+    "showing part of the list and scrolling the rest")
+  T.eq(list.th, list.maxVisible * 2 + 2, "two tile rows per visible box plus the border")
+  T.eq(list.title, "CHANGE BOX", "under the vanilla heading")
+
+  -- it opens on the box you are in, not on BOX 1
+  game.save.currentBox = 9
+  game.stack:pop()
+  drive(game, screen, "a")
+  list = game.stack:top()
+  T.eq(list.index, 9, "opening on the box you are already in")
+  T.check(list.scroll + list.maxVisible >= 9 and list.scroll < 9,
+    "scrolled far enough down to show it")
+
+  -- choosing a row: A on the menu, the way the player does it
+  game.save.currentBox = 1
+  game.stack:pop()
+  drive(game, screen, "a")
+  list = game.stack:top()
+  for _ = 1, 6 do
+    game.press("down")
+    list:update()
+    game.release()
+  end
+  game.press("a")
+  list:update()
+  game.release()
   T.eq(game.save.currentBox, 7, "and choosing one opens it")
   T.eq(game.stack:top(), nil, "closing the list behind it")
 end

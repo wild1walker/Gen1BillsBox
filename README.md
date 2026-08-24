@@ -122,6 +122,13 @@ The party pane keeps the sideways cursor instead — the party
 menu's own filled and hollow glyphs — because six rows of sixteen fill that
 pane exactly and leave no band above a head to put an arrow in.
 
+A on the header opens the twelve-box list: a bordered pop-up like SORT,
+hanging from the bottom edge so the header naming the open box stays visible
+above it, showing six rows at a time and scrolling the rest — twelve rows at
+the vanilla two tiles each would need 26 of the 18 tile rows there are. It
+opens on the box you are already in rather than on BOX 1, and each row carries
+how full that box is, right-aligned in fixed columns so the counts line up.
+
 A carried POKéMON stays with the cursor while you walk the header to another
 box, which is what makes a cross-box move one operation. B always means
 *back*: it puts a carried POKéMON down in the slot, and the box, it was
