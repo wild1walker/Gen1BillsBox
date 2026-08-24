@@ -1218,13 +1218,22 @@ return function(mod)
     menu.index = game.save.currentBox
     menu:clampScroll()
 
-    -- Menu sits its own "more below" glyph on the bottom BORDER row, on top
-    -- of the frame's own bottom rule and one tile from its corner, which is
-    -- the overlap you can see.  So the parent draw is handed a list that
-    -- stops at the last visible row -- nothing left to point at, no glyph --
-    -- and the arrow is redrawn as this mod's own triangle, in the spare
-    -- interior column beside the bottom row, clear of every edge.
+    -- Two things Menu draws onto its own frame rather than inside it, both
+    -- taken off the parent draw and put back by hand:
+    --
+    -- the "more below" glyph, which it sits on the bottom BORDER row, over
+    -- the frame's own bottom rule and one tile from its corner.  The parent
+    -- is handed a list that stops at the last visible row -- nothing left to
+    -- point at, no glyph -- and the arrow is redrawn as this mod's own
+    -- triangle in the spare interior column, clear of every edge.
+    --
+    -- and the title, which it draws at the very top of the border tile, so
+    -- the glyphs' first pixel row lands on the single white pixel the frame
+    -- keeps outside its rule.  One pixel lower and that margin survives; the
+    -- row it gains at the bottom is the blank one under the top edge.
     local baseDraw = menu.draw
+    local title = menu.title
+    local titleWidth = #Font.split(title) * 8
     local views = {}
     menu.draw = function(m)
       local all = m.items
@@ -1234,15 +1243,21 @@ return function(mod)
         for i = 1, math.min(#all, m.scroll + m.maxVisible) do view[i] = all[i] end
         views[m.scroll] = view
       end
-      m.items = view
+      m.items, m.title = view, nil
       local ok, err = pcall(baseDraw, m)
-      m.items = all
+      m.items, m.title = all, title
       if not ok then error(err, 0) end
+
+      love.graphics.setColor(1, 1, 1, 1)
+      love.graphics.rectangle("fill", (m.tx + 3) * 8, m.ty * 8, titleWidth, 8)
+      ink(BLACK)
+      Font.draw(title, (m.tx + 3) * 8, m.ty * 8 + 1)
+
       if m.scroll + m.maxVisible < #all then
         ink(BLACK)
         arrow((m.tx + m.tw - 2) * 8, (m.ty + m.th - 2) * 8 + 2, "down")
-        love.graphics.setColor(1, 1, 1, 1)
       end
+      love.graphics.setColor(1, 1, 1, 1)
     end
 
     game.stack:push(menu)

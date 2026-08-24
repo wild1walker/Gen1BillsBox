@@ -461,20 +461,34 @@ do
   local list = game.stack:top()
 
   local function capture(menu)
-    local rects, codes = {}, {}
+    local rects, codes, titles = {}, {}, {}
     local realRect, realCode = love.graphics.rectangle, Font.drawCode
+    local realDraw = Font.draw
     love.graphics.rectangle = function(_, x, y, w, h)
       rects[#rects + 1] = { x = x, y = y, w = w, h = h }
     end
     Font.drawCode = function(code) codes[#codes + 1] = code end
+    Font.draw = function(text, x, y)
+      if text == menu.title then titles[#titles + 1] = { x = x, y = y } end
+    end
     local ok, err = pcall(function() menu:draw() end)
     love.graphics.rectangle, Font.drawCode = realRect, realCode
+    Font.draw = realDraw
     T.check(ok, "the box list draws without error (" .. tostring(err) .. ")")
-    return rects, codes
+    return rects, codes, titles
   end
 
-  local rects, codes = capture(list)
+  local rects, codes, titles = capture(list)
   T.eq(#list.items, Boxes.COUNT, "the draw leaves the full list behind it")
+  T.eq(list.title, " CHANGE BOX ", "the title survives the draw too")
+
+  -- Menu draws a title at the very top of the border tile, where the glyphs'
+  -- first pixel row lands on the single white pixel the frame keeps outside
+  -- its rule.  This one is drawn by hand, once, a pixel lower.
+  T.eq(#titles, 1, "the title is drawn exactly once")
+  T.eq(titles[1].x, (list.tx + 3) * 8, "in the column Menu puts it in")
+  T.eq(titles[1].y, list.ty * 8 + 1,
+    "one pixel down, so the frame's white margin survives")
 
   local moreArrows = 0
   for _, c in ipairs(codes) do

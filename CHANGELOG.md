@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.14
+
+- **The CHANGE BOX heading sits a pixel lower.** The bordered widget draws a
+  title at the very top of the border tile, so the glyphs' first pixel row
+  lands on the single white pixel the frame keeps outside its rule and the
+  letters read as touching the edge of the pop-up. The heading is now drawn by
+  hand, one pixel down, which leaves that margin intact; the row it gains at
+  the bottom is the blank one under the top edge, so nothing else moves.
+
 ## 1.0.13
 
 - **The CHANGE BOX heading no longer touches its frame.** The bordered widget

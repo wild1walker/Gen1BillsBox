@@ -131,9 +131,11 @@ how full that box is, right-aligned in fixed columns so the counts line up.
 
 Its heading is padded a tile on each side, because the widget whites out
 exactly as many tiles as the title is wide and sits it on the top rule, and
-its scroll arrow is drawn *inside* the frame rather than on the bottom border
-where the widget's own would go — which makes it the same triangle as the grid
-cursor and the header's two.
+drawn a pixel lower than the widget puts it, because at the top of the border
+tile the letters' first pixel row lands on the single white pixel the frame
+keeps outside its rule. Its scroll arrow is drawn *inside* the frame rather
+than on the bottom border where the widget's own would go — which makes it the
+same triangle as the grid cursor and the header's two.
 
 A carried POKéMON stays with the cursor while you walk the header to another
 box, which is what makes a cross-box move one operation. B always means
