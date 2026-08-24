@@ -225,6 +225,63 @@ return function(mod)
     end
   end
 
+  -- ------- the two pop-ups
+  --
+  -- Both of them are Menus, and Menu draws two things ONTO its own frame
+  -- rather than inside it.  This takes both off the parent draw and puts
+  -- them back where they belong; every Menu this screen pushes with a title
+  -- or a scrollbar goes through here.
+  --
+  -- The title it writes at the very top of the border tile, so the glyphs'
+  -- first pixel row lands on the single white pixel the frame keeps outside
+  -- its rule and the letters read as touching the edge of the pop-up.  It is
+  -- blanked before the parent draw and redrawn a pixel lower, with the same
+  -- white-out Menu would have punched -- exactly as wide as the title, which
+  -- is why the titles are padded a space each side: without that the rule
+  -- runs into the first and last letter.  The row it gains at the bottom is
+  -- the blank one under the top edge, so nothing else moves.
+  --
+  -- The "more below" glyph it sits on the bottom BORDER row, over the frame's
+  -- own bottom rule and one tile from its corner.  The parent is handed a
+  -- list that stops at the last visible row -- nothing left to point at, no
+  -- glyph -- and the arrow is redrawn as this mod's own triangle in the spare
+  -- interior column, clear of every edge.
+  local function popup(menu)
+    local baseDraw = menu.draw
+    local title = menu.title
+    local titleWidth = title and #Font.split(title) * 8 or 0
+    local views = {}
+    menu.draw = function(m)
+      local all = m.items
+      if m.maxVisible then
+        local view = views[m.scroll]
+        if not view then
+          view = {}
+          for i = 1, math.min(#all, m.scroll + m.maxVisible) do view[i] = all[i] end
+          views[m.scroll] = view
+        end
+        m.items = view
+      end
+      m.title = nil
+      local ok, err = pcall(baseDraw, m)
+      m.items, m.title = all, title
+      if not ok then error(err, 0) end
+
+      if title then
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.rectangle("fill", (m.tx + 3) * 8, m.ty * 8, titleWidth, 8)
+        ink(BLACK)
+        Font.draw(title, (m.tx + 3) * 8, m.ty * 8 + 1)
+      end
+      if m.maxVisible and m.scroll + m.maxVisible < #all then
+        ink(BLACK)
+        arrow((m.tx + m.tw - 2) * 8, (m.ty + m.th - 2) * 8 + 2, "down")
+      end
+      love.graphics.setColor(1, 1, 1, 1)
+    end
+    return menu
+  end
+
   local function play(game, id)
     if not (game and game.data) then return end
     pcall(function() require("src.core.Sound").play(game.data, id) end)
@@ -1059,9 +1116,9 @@ return function(mod)
   -- A bordered pop-up rather than a screen: this is the same kind of thing as
   -- the per-POKeMON rows START opens, so it is the same widget with the same
   -- chrome, anchored to the bottom the way the party menu's own submenu is
-  -- (`Font.drawBox(9, 17 - n * 2 - 1, ...)` in src/ui/PartyMenu.lua).  It has
-  -- no title for the same reason that one does not: the rows say what they
-  -- are, and a title would cost two more tile rows out of eighteen.
+  -- (`Font.drawBox(9, 17 - n * 2 - 1, ...)` in src/ui/PartyMenu.lua), and
+  -- headed SORT the way the box list is headed CHANGE BOX.  The title costs
+  -- no rows: Menu writes it INTO the top border it was going to draw anyway.
   function Screen:openSortMenu()
     if self.held then return end
     local game = self.game
@@ -1087,9 +1144,10 @@ return function(mod)
     -- two rows per item plus the border, and the box hangs from the bottom
     -- edge so it never covers the header telling you which box you are sorting.
     local th = #items * 2 + 2
-    game.stack:push(Menu.new(game, items, {
+    game.stack:push(popup(Menu.new(game, items, {
       tx = 8, ty = math.max(0, 18 - th), tw = 12, th = th, noSound = true,
-    }))
+      title = " " .. Strings("SORT") .. " ",
+    })))
   end
 
   -- ------- the submenu, the box list, and RELEASE
@@ -1218,49 +1276,7 @@ return function(mod)
     menu.index = game.save.currentBox
     menu:clampScroll()
 
-    -- Two things Menu draws onto its own frame rather than inside it, both
-    -- taken off the parent draw and put back by hand:
-    --
-    -- the "more below" glyph, which it sits on the bottom BORDER row, over
-    -- the frame's own bottom rule and one tile from its corner.  The parent
-    -- is handed a list that stops at the last visible row -- nothing left to
-    -- point at, no glyph -- and the arrow is redrawn as this mod's own
-    -- triangle in the spare interior column, clear of every edge.
-    --
-    -- and the title, which it draws at the very top of the border tile, so
-    -- the glyphs' first pixel row lands on the single white pixel the frame
-    -- keeps outside its rule.  One pixel lower and that margin survives; the
-    -- row it gains at the bottom is the blank one under the top edge.
-    local baseDraw = menu.draw
-    local title = menu.title
-    local titleWidth = #Font.split(title) * 8
-    local views = {}
-    menu.draw = function(m)
-      local all = m.items
-      local view = views[m.scroll]
-      if not view then
-        view = {}
-        for i = 1, math.min(#all, m.scroll + m.maxVisible) do view[i] = all[i] end
-        views[m.scroll] = view
-      end
-      m.items, m.title = view, nil
-      local ok, err = pcall(baseDraw, m)
-      m.items, m.title = all, title
-      if not ok then error(err, 0) end
-
-      love.graphics.setColor(1, 1, 1, 1)
-      love.graphics.rectangle("fill", (m.tx + 3) * 8, m.ty * 8, titleWidth, 8)
-      ink(BLACK)
-      Font.draw(title, (m.tx + 3) * 8, m.ty * 8 + 1)
-
-      if m.scroll + m.maxVisible < #all then
-        ink(BLACK)
-        arrow((m.tx + m.tw - 2) * 8, (m.ty + m.th - 2) * 8 + 2, "down")
-      end
-      love.graphics.setColor(1, 1, 1, 1)
-    end
-
-    game.stack:push(menu)
+    game.stack:push(popup(menu))
   end
 
   -- ------- input

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.15
+
+- **SORT has a heading now**, the way the box list is headed CHANGE BOX. It
+  costs no rows: the widget writes a title into the top border it was going to
+  draw anyway. Padded a space each side and drawn a pixel low, for the same two
+  reasons the box list's heading is.
+- Both pop-ups now go through one decorator instead of the box list carrying
+  its own copy: it takes the title and the "more below" glyph off the parent
+  draw -- the two things the widget draws *onto* its own frame -- and puts them
+  back inside it.
+
 ## 1.0.14
 
 - **The CHANGE BOX heading sits a pixel lower.** The bordered widget draws a

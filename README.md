@@ -169,7 +169,8 @@ thing flashing is the thing you are trying to look at.
 It is a bordered pop-up, not a screen: the same widget with the same chrome as
 the per-POKéMON rows START opens, hanging from the bottom edge the way the
 party menu's own submenu does, so it never covers the header naming the box you
-are sorting.
+are sorting. It is headed **SORT**, which costs no rows — the widget writes a
+title into the top border it was going to draw anyway.
 
 Every sort ends the same way — the box closed up into cells 1..n — so COLLAPSE
 is simply the sort that changes no order, and the rest are that plus a

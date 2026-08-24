@@ -1499,6 +1499,30 @@ do
   T.eq(menu.ty + menu.th, 18, "with its bottom edge on the last row")
   T.check(menu.tx + menu.tw <= 20, "and inside the screen")
 
+  -- headed SORT, which costs no rows: Menu writes a title into the top
+  -- border it was going to draw anyway.  Padded and drawn a pixel low for
+  -- the same reasons the box list's heading is.
+  T.eq(menu.title, " SORT ", "headed SORT, padded off the frame's rule")
+  do
+    local Font = require("src.render.Font")
+    Font.load(Data)
+    T.check(#Font.split(menu.title) <= menu.tw - 4,
+      "and short enough to clear the frame's top-right corner")
+    local titles = {}
+    local realDraw, realCode = Font.draw, Font.drawCode
+    Font.draw = function(text, x, y)
+      if text == menu.title then titles[#titles + 1] = { x = x, y = y } end
+    end
+    Font.drawCode = function() end
+    local ok, err = pcall(function() menu:draw() end)
+    Font.draw, Font.drawCode = realDraw, realCode
+    T.check(ok, "the sort menu draws without error (" .. tostring(err) .. ")")
+    T.eq(#titles, 1, "the heading is drawn exactly once")
+    T.eq(titles[1].y, menu.ty * 8 + 1,
+      "a pixel down, so the frame's white margin survives")
+    T.eq(menu.title, " SORT ", "and the heading survives the draw")
+  end
+
   -- choosing a row: A on the menu, the way the player does it.  Menu pops
   -- itself and then runs the row.
   game.press("a")
