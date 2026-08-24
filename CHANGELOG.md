@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.0
+
+- **The POKéMON screen wears the same colours as the box.** The box gives
+  every POKéMON in it its own species palette; the party menu draws the same
+  six POKéMON one button press away, and the cart put a single `MEWMON` block
+  over its whole icon column — so the two screens disagreed about what colour
+  a POKéMON was. There is now one palette zone per party row, two tiles
+  square, over the icon.
+- Everything else on that screen stays the cart's: the `GREENBAR` base, the
+  green / yellow / red HP bar blocks, the layout, the cursor. Names, levels
+  and the text box are shade 3, which is `{0,0,0}` in every palette involved,
+  so nothing outside the icon column changes at all.
+- Full-colour icons from an icon mod are **marked** there rather than
+  coloured, exactly as they are in the box — under the cart's own `MEWMON`
+  block that art was being run through the shade remap.
+- The engine's party menu is **decorated**, not replaced: two methods on the
+  instance, each calling the engine's own first and falling back to it. A mod
+  that has already claimed the party screen keeps it.
+- **PARTY COLOURS** turns it off, and off is the engine's screen exactly.
+- The full-colour icon test moved into its own file, because both screens now
+  ask it the same question about the same files — and so answer it once.
+
 ## 1.0.15
 
 - **SORT has a heading now**, the way the box list is headed CHANGE BOX. It

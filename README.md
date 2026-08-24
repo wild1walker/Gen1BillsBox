@@ -93,6 +93,9 @@ Your COLORS setting still decides what those palettes are — ADVANCED resolves
 per-species pokered-gbc colours, SGB the Super Game Boy ones, CLASSIC and the
 OG modes replace the lot. The screen asks; the mode answers.
 
+The second rule now runs on the party menu as well, which is the screen you
+walk into the box from. See **The POKéMON screen, in the same colours**.
+
 ## Controls
 
 | Action | Control |
@@ -245,6 +248,37 @@ party can still never be emptied from it — the last POKéMON cannot be picked
 up at all — so there is no way to strand yourself in tall grass with nothing to
 send out.
 
+## The POKéMON screen, in the same colours
+
+The box gives every POKéMON in it its own species palette. The party menu
+draws the same six POKéMON, in the same 16×16 icons, one button press away —
+and the cart put a single `MEWMON` block over its whole icon column, so the
+two screens disagreed about what colour a POKéMON was. That is the only place
+this mod's own two screens ever contradicted each other, and it is what this
+fixes: **one palette zone per party row**, two tiles square, over the icon.
+
+Everything else on that screen is the cart's and stays the cart's. The
+`GREENBAR` base, the green / yellow / red HP bar blocks — that is health being
+read at a glance, not decoration — the layout, the font, and the `$ED` / `$EC`
+cursor the box's own party pane borrows. Names, levels and the text box are
+drawn in shade 3, which is `{0,0,0}` in `MEWMON`, in `GREENBAR` and in all 151
+species palettes alike, so nothing outside the icon column can tell the
+difference. There was nothing here to redraw — only four palettes where there
+could be six.
+
+Full-colour icons from an icon mod are **marked** rather than coloured, the
+same way they are in the box: a species palette under art that is re-blit
+unshaded is paint nobody would ever see.
+
+It is the engine's own party menu **decorated**, not replaced — two methods
+added to the instance, each calling the engine's own first and falling back to
+it if anything goes wrong — so switching, field moves, item targeting, TM/HM
+and every battle entrance to that screen are still the engine's, and a battle
+that hands the menu its own party view colours that party rather than the
+save's. A mod that has already taken the party screen keeps it, layout and
+colours both. **PARTY COLOURS** turns this off, and off is the engine's screen
+exactly.
+
 ## BILL'S PC is BILL'S BOX
 
 The Pokémon Center PC's storage row reads **SOMEONE'S BOX** until you meet
@@ -274,6 +308,7 @@ In the mod manager's row for this mod:
 | **FULL BOX NOTE** | on | One line after a catch that overflowed, naming the box it actually went to. See below. |
 | **SWITCH ON FULL** | on | The open box follows a catch that overflowed, instead of staying on the full one. |
 | **BOX ON START** | on | A BOX row on the START menu, opening the same screen the PC opens. |
+| **PARTY COLOURS** | on | Each party member drawn in its own species palette on the POKéMON screen, the way the box draws them. Off is the engine's own screen: one `MEWMON` block over the icon column. |
 
 ## Catching into a full box
 
@@ -379,6 +414,11 @@ screen owns it here too.
 
 The PC menu hook calls the next handler first and decorates the result, so
 another mod's row on the same menu survives.
+
+The party menu is decorated rather than replaced, and only when nothing else
+has claimed it: a mod that registers its own `PartyMenu` keeps its screen
+untouched, and one that claims the id after this mod wins outright. Either way
+there is never a second party menu.
 
 `modern_pc_ui` is declared as a conflict: it replaces the same screen id and
 only one of them can. **Gen 3 Box** (`gen3_box`) can be installed alongside

@@ -19,6 +19,13 @@
 -- The slots are drawn with `PartyMenu.drawIcon`, the engine's own party-menu
 -- icon path, so per-species icons, the `pokemon.icon` hook and any icon
 -- replacement mod land in the box exactly as they land in the party.
+--
+-- And the party menu itself is coloured by the box's own rule -- one species
+-- palette per POKeMON, where the cart put one MEWMON block over the whole
+-- icon column -- because it draws the same six POKeMON one button press away,
+-- and two screens of this mod disagreeing about what colour a POKeMON is
+-- reads as a bug rather than as fidelity.  That screen is DECORATED, not
+-- replaced: see party.lua.
 
 return function(mod)
   local Strings = require("src.core.Strings")
@@ -54,6 +61,15 @@ return function(mod)
     -- from: the cart wanted a PC in front of you.
     { key = "startRow", label = "BOX ON START", type = "toggle",
       default = true },
+    -- The box's colour rule on the party menu: one species palette per
+    -- POKeMON down the icon column, where the cart put one MEWMON block over
+    -- the lot.  On by default because the two screens are read one after the
+    -- other and disagreeing about what colour a POKeMON is reads as a bug;
+    -- off is here because it IS a change to a screen this mod does not
+    -- otherwise own, and it puts that screen back exactly as the engine
+    -- draws it.
+    { key = "partyColours", label = "PARTY COLOURS", type = "toggle",
+      default = true },
   })
 
   local function option(key, fallback)
@@ -62,37 +78,53 @@ return function(mod)
     return value
   end
 
-  -- ------- the screen
+  -- ------- the other files
   --
-  -- Kept in its own file and compiled through the sandbox's own `load`, which
-  -- is the multi-file pattern the loader supports (src/mods/Sandbox.lua's
-  -- sandboxedLoad): the chunk runs in this mod's globals rather than the real
-  -- _G.  A failure here logs and returns, which leaves the builtin BoxMenu in
-  -- place -- a broken storage screen must never be the only storage screen.
-  local source, readErr = mod:read("screen.lua")
-  if not source then
-    mod.log:error("screen.lua is missing (%s); reinstall the mod",
-      tostring(readErr or "unknown read error"))
-    return
+  -- Each is kept in its own file and compiled through the sandbox's own
+  -- `load`, which is the multi-file pattern the loader supports
+  -- (src/mods/Sandbox.lua's sandboxedLoad): the chunk runs in this mod's
+  -- globals rather than the real _G.  Every failure logs and returns nothing,
+  -- which leaves the builtin screen in place -- a broken storage screen must
+  -- never be the only storage screen, and a broken party menu must never be
+  -- the only party menu.
+  local function part(file, what, ...)
+    local source, readErr = mod:read(file)
+    if not source then
+      mod.log:error("%s is missing (%s); reinstall the mod", file,
+        tostring(readErr or "unknown read error"))
+      return nil
+    end
+
+    local chunk, compileErr = load(source, "@" .. mod.path .. "/" .. file)
+    if not chunk then
+      mod.log:error("%s did not compile: %s", file, tostring(compileErr))
+      return nil
+    end
+
+    local okFactory, factory = pcall(chunk)
+    if not okFactory or type(factory) ~= "function" then
+      mod.log:error("%s must return a factory function: %s", file,
+        tostring(factory))
+      return nil
+    end
+
+    local ok, value = pcall(factory, mod, ...)
+    if not ok or type(value) ~= "table" then
+      mod.log:error("the %s factory failed: %s", what, tostring(value))
+      return nil
+    end
+    return value
   end
 
-  local chunk, compileErr = load(source, "@" .. mod.path .. "/screen.lua")
-  if not chunk then
-    mod.log:error("screen.lua did not compile: %s", tostring(compileErr))
-    return
-  end
+  -- Which icons are authored full colour, and so must sit out the shade
+  -- remap.  Shared by both screens, and asked of each file once.
+  local Icons = part("iconart.lua", "icon colour")
+  if not Icons then return end
 
-  local okFactory, factory = pcall(chunk)
-  if not okFactory or type(factory) ~= "function" then
-    mod.log:error("screen.lua must return a factory function: %s",
-      tostring(factory))
-    return
-  end
-
-  local okScreen, screen = pcall(factory, mod)
-  if not okScreen or type(screen) ~= "table"
-      or type(screen.new) ~= "function" then
-    mod.log:error("the box screen factory failed: %s", tostring(screen))
+  -- ------- the screen
+  local screen = part("screen.lua", "box screen", Icons)
+  if not screen or type(screen.new) ~= "function" then
+    mod.log:error("screen.lua did not return a screen factory")
     return
   end
 
@@ -104,6 +136,27 @@ return function(mod)
     mod.content.screens:override("BoxMenu", screen)
   else
     mod.content.screens:register("BoxMenu", screen)
+  end
+
+  -- ------- and the party menu, in the same colours
+  --
+  -- The engine's own screen with two methods decorated onto it, so every
+  -- entrance to it -- START, the bag's item target, a battle's switch, a
+  -- script's pick -- is the same screen it always was, drawn in the colours
+  -- the box next door draws the same POKeMON in.  See party.lua.
+  --
+  -- `register`, and only onto an id nobody else has taken: a mod that has
+  -- already replaced the party menu has replaced the geometry this colours,
+  -- and a palette zone laid on somebody else's layout is worse than no
+  -- palette zone at all.  A mod that takes the id AFTER this one still wins
+  -- outright, which is the same answer arrived at from the other side.
+  if mod.content.screens:get("PartyMenu") then
+    mod.log:info("another mod owns the party menu; its colours are its own")
+  else
+    local party = part("party.lua", "party menu", Icons)
+    if party and type(party.new) == "function" then
+      mod.content.screens:register("PartyMenu", party)
+    end
   end
 
   -- ------- BILL'S PC is BILL'S BOX
