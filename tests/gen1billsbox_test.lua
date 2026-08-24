@@ -1090,19 +1090,90 @@ do
   T.eq(#game.save.boxes[1], 2, "with the box itself untouched by the reading")
 end
 
--- the party still closes up, because a party with a hole in it is not
--- something the rest of the game would understand
+-- ------- the party takes gaps too, but only while you are looking at it
+--
+-- save.party is NEVER sparse: what is sparse is only which row each member is
+-- drawn in, and the array is kept sorted by that row.  Party order is BATTLE
+-- order -- party[1] is who you send out -- so the visual order and the array
+-- order must never drift apart, and keeping them together is what leaves the
+-- screen nothing to collapse on the way out.
+
+local function partyView(screen)
+  local out = {}
+  for row = 1, 6 do
+    local m = screen:monDrawnAt("party", row)
+    out[#out + 1] = m and m.species:gsub("FIXMON_", "") or "."
+  end
+  return table.concat(out)
+end
+
 do
   forgetGrid()
   local game = fakeGame({}, { mon("FIXMON_A"), mon("FIXMON_B"), mon("FIXMON_C") })
   local screen = factory.new(game)
+  T.eq(partyView(screen), "ABC...", "three POKeMON in the first three rows")
+
   drive(game, screen, "left", "down", "a")
   T.eq(ids(game.save.party), "FIXMON_A,FIXMON_C",
-    "taking the second party POKeMON closes the party up behind it")
-  T.eq(#game.save.party, 2, "so the party is a list of two, not a list with a hole")
-  drive(game, screen, "b")
-  T.eq(ids(game.save.party), "FIXMON_A,FIXMON_B,FIXMON_C",
-    "and B goes back into the slot it came from")
+    "taking the second one leaves the save a compact list of two")
+  -- a carried POKeMON is drawn on the cursor, so the hole shows once it is
+  -- put down somewhere else -- which is the whole point of the change
+  drive(game, screen, "down", "down", "down", "a")
+  T.eq(partyView(screen), "A.C.B.",
+    "row two stays empty rather than closing up, and B is where you put it")
+  T.eq(ids(game.save.party), "FIXMON_A,FIXMON_C,FIXMON_B",
+    "and the save is the same three, in the order the rows read")
+
+  -- and B goes home again if it is picked back up and cancelled
+  drive(game, screen, "a", "b")
+  T.eq(partyView(screen), "A.C.B.", "B goes back into the row it came from")
+end
+
+-- the array follows the ROWS, which is what stops the leader changing behind
+-- your back
+do
+  forgetGrid()
+  local game = fakeGame({}, { mon("FIXMON_A"), mon("FIXMON_B"), mon("FIXMON_C") })
+  local screen = factory.new(game)
+  drive(game, screen, "left", "a")
+  T.eq(ids(game.save.party), "FIXMON_B,FIXMON_C",
+    "B leads for as long as the leader is out of the party")
+
+  drive(game, screen, "down", "down", "down", "a")
+  T.eq(partyView(screen), ".BCA..", "it lands in the row you aimed at")
+  T.eq(ids(game.save.party), "FIXMON_B,FIXMON_C,FIXMON_A",
+    "and the party is re-sorted around it, so what leads is what you can see")
+end
+
+-- a swap inside the party exchanges rows, and the array follows
+do
+  forgetGrid()
+  local game = fakeGame({}, { mon("FIXMON_A"), mon("FIXMON_B"), mon("FIXMON_C") })
+  local screen = factory.new(game)
+  drive(game, screen, "left", "a", "down", "down", "a")
+  T.eq(partyView(screen), "CBA...", "the first and third rows traded POKeMON")
+  T.eq(ids(game.save.party), "FIXMON_C,FIXMON_B,FIXMON_A",
+    "and the party reads the same way round, so C now leads")
+  T.eq(#game.save.party, 3, "with nobody lost to the swap")
+end
+
+-- and closing the screen has nothing to collapse, because it never was sparse
+do
+  forgetGrid()
+  local game = fakeGame({}, { mon("FIXMON_A"), mon("FIXMON_B"), mon("FIXMON_C") })
+  local screen = factory.new(game)
+  drive(game, screen, "left", "down", "a", "down", "down", "down", "a")
+  T.eq(partyView(screen), "A.C.B.", "a party with holes in it on screen")
+  T.eq(ids(game.save.party), "FIXMON_A,FIXMON_C,FIXMON_B",
+    "and a compact list of three in the save, in the order shown")
+
+  screen:exit()
+  T.eq(ids(game.save.party), "FIXMON_A,FIXMON_C,FIXMON_B",
+    "closing changes nothing, because there was nothing sparse to close")
+
+  local reopened = factory.new(game)
+  T.eq(partyView(reopened), "ACB...",
+    "and the gaps are gone next visit -- they were the view, not the party")
 end
 
 

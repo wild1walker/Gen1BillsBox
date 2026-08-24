@@ -156,8 +156,23 @@ dropped, and a cell that is out of range or claimed twice is thrown away. The
 worst case is that a box goes back to the compact order nobody could see a gap
 in anyway. No POKéMON is ever anywhere but in the box the save says it is in.
 
-The **party** is the exception and closes up as it always did. A party of six
-with a hole in it is not something the rest of the game would understand.
+### The party takes gaps too — while you are looking at it
+
+Pick one out of the middle of the party and its row stays empty; put it back
+down in any empty row. Close the box and the party is a list of six again.
+
+That is deliberately *not* the box's mechanism, and the difference is the
+point. A box's arrangement is **saved**, because a gap you left in storage is a
+decision. The party's is not — it lives on the screen and is gone when you
+close it. `save.party` is **never** sparse: what is sparse is only which row
+each member is drawn in.
+
+The party array is kept **sorted by that row** after every change, and that is
+the whole safety of it. Party order is *battle* order — `party[1]` is who you
+send out — so an arrangement that let the visual order and the array order
+drift apart would quietly change who leads. Sorted, the two cannot disagree,
+and closing the screen has nothing to collapse: the party already was the list
+it looked like.
 
 ## Opening it from the START menu
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.9
+
+- **The party takes gaps too, while the box is open.** Pick one out of the
+  middle of the party and its row stays empty instead of the rest sliding up,
+  and you can put it back down in any empty row. Close the box and the party
+  is a list of six again.
+- It is deliberately *not* the same mechanism as a box's, and the difference is
+  the point. A box's arrangement is saved, because a gap you left in storage is
+  a decision. The party's is not: it lives on the screen object and is gone the
+  moment you close it. **`save.party` is never sparse** — what is sparse is only
+  which row each member is drawn in.
+- The party array is kept **sorted by that row** after every change, which is
+  the whole safety of it: party order is *battle* order, `party[1]` is who you
+  send out, so an arrangement that let the visual order and the array order
+  drift apart would quietly change who leads. Sorted, they cannot disagree —
+  and closing the screen has nothing to collapse, because the party already was
+  the list it looked like.
+
 ## 1.0.8
 
 - **A BOX row on the START menu**, opening the same screen the PC opens. It

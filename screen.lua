@@ -55,9 +55,14 @@
 -- data: one grid cell per POKeMON, reconciled with the box on every read.
 -- A POKeMON picked up leaves its cell empty, one put down lands in the cell
 -- you aimed at, and the others do not move.  See "where in the grid each
--- POKeMON sits" below.  The PARTY still closes up behind a POKeMON taken out
--- of it, because a party of six with a hole in it is not a thing the rest of
--- the game would understand.
+-- POKeMON sits" below.
+--
+-- The PARTY takes gaps too, but only while you are looking at it, and by a
+-- different mechanism: save.party is never sparse, only which ROW each member
+-- is drawn in, and the array is kept sorted by that row.  Party order is
+-- BATTLE order, so those two must never drift apart -- and keeping them
+-- together means closing the screen has nothing to collapse.  See "and where
+-- in the PARTY pane each one sits".
 --
 -- ------- the cursor
 --
@@ -443,6 +448,91 @@ return function(mod)
     return was
   end
 
+  -- ------- and where in the PARTY pane each one sits
+  --
+  -- The same idea, and deliberately not the same mechanism.
+  --
+  -- A box's arrangement is SAVED, because a box is storage and a gap you left
+  -- there is a decision.  The party's is not: it lives on the screen object,
+  -- so it is gone the moment you close the box and the party is a list of six
+  -- again -- which is what the rest of the game reads it as, every frame,
+  -- everywhere.
+  --
+  -- So save.party is never sparse.  What is sparse is only which ROW each of
+  -- its members is drawn in, and the array is kept SORTED BY THAT ROW after
+  -- every change.  That last part is the whole safety of it: party order is
+  -- BATTLE order -- party[1] is who you send out -- so an arrangement that let
+  -- the visual order and the array order drift apart would quietly change who
+  -- leads.  Sorted, the two can never disagree, and closing the screen needs
+  -- to do nothing at all to "collapse" the party: it was already the list it
+  -- looks like.
+  local function partyRowsOf(screen)
+    local list = screen:listFor("party")
+    local rows = screen.partyRow
+    -- trust it or rebuild it; there is no third state worth carrying, because
+    -- nothing but this screen moves the party while this screen is open
+    local ok = type(rows) == "table" and #rows == #list
+    if ok then
+      local last = 0
+      for j = 1, #rows do
+        local row = rows[j]
+        if type(row) ~= "number" or row <= last or row > PARTY_ROWS then
+          ok = false
+          break
+        end
+        last = row
+      end
+    end
+    if not ok then
+      rows = {}
+      for j = 1, #list do rows[j] = j end
+      screen.partyRow = rows
+    end
+    return rows
+  end
+
+  local function partyIndexAtRow(screen, row)
+    local rows = partyRowsOf(screen)
+    for j = 1, #rows do
+      if rows[j] == row then return j end
+    end
+    return nil
+  end
+
+  local function partyMonAtRow(screen, row)
+    local j = partyIndexAtRow(screen, row)
+    if not j then return nil end
+    return screen:listFor("party")[j]
+  end
+
+  local function partyTake(screen, row)
+    local j = partyIndexAtRow(screen, row)
+    if not j then return nil end
+    table.remove(partyRowsOf(screen), j)
+    return table.remove(screen:listFor("party"), j)
+  end
+
+  -- Inserted at its SORTED position, not appended: that is what keeps the
+  -- array order and the visual order the same thing.
+  local function partyPut(screen, row, mon)
+    local rows = partyRowsOf(screen)
+    local at = #rows + 1
+    for j = 1, #rows do
+      if rows[j] > row then at = j break end
+    end
+    table.insert(rows, at, row)
+    table.insert(screen:listFor("party"), at, mon)
+  end
+
+  local function partyReplace(screen, row, mon)
+    local j = partyIndexAtRow(screen, row)
+    if not j then return nil end
+    local list = screen:listFor("party")
+    local was = list[j]
+    list[j] = mon
+    return was
+  end
+
   -- ------- the screen
 
   local Screen = {}
@@ -474,6 +564,11 @@ return function(mod)
     -- whether the party changed while this screen was open, which is the
     -- only reason to disturb the follower on the way out
     self.partyTouched = false
+    -- one row per party member, in order, rebuilt fresh every time the screen
+    -- opens -- a gap in the party is a working arrangement, not a decision to
+    -- keep
+    self.partyRow = {}
+    for j = 1, #(game.save.party or {}) do self.partyRow[j] = j end
     return self
   end
 
@@ -550,7 +645,7 @@ return function(mod)
   end
 
   function Screen:monAt(pane)
-    if pane == "party" then return self:listFor("party")[self.partySlot] end
+    if pane == "party" then return partyMonAtRow(self, self.partySlot) end
     local save = self.game.save
     return boxMonAt(save, save.currentBox, self.boxSlot)
   end
@@ -563,7 +658,7 @@ return function(mod)
     if self.held and self.pane == pane and self:slotIndex(pane) == slot then
       return self.held.mon
     end
-    if pane == "party" then return self:listFor("party")[slot] end
+    if pane == "party" then return partyMonAtRow(self, slot) end
     local save = self.game.save
     return boxMonAt(save, save.currentBox, slot)
   end
@@ -712,8 +807,8 @@ return function(mod)
     local save = self.game.save
     if self.pane == "party" then
       local list = self:listFor("party")
-      local index = self.partySlot
-      local mon = list[index]
+      local row = self.partySlot
+      local mon = partyMonAtRow(self, row)
       if not mon then return end
       -- The party may not be emptied, exactly as the vanilla PC refuses the
       -- last mon.  Refusing the PICK-UP rather than the drop is what makes the
@@ -724,11 +819,12 @@ return function(mod)
           or Strings("You can't deposit\nthe last POKéMON!"))
         return
       end
-      -- the party is a LIST of six and closes up behind a POKeMON taken out
-      -- of it, because that is what the party is everywhere else in the game
-      table.remove(list, index)
+      -- the row it came out of stays empty for as long as this screen is
+      -- open; save.party is compact throughout, so the party is already the
+      -- list it will look like again the moment the screen closes
+      partyTake(self, row)
       self.partyTouched = true
-      self.held = { mon = mon, pane = "party", index = index }
+      self.held = { mon = mon, pane = "party", row = row }
       return
     end
 
@@ -749,7 +845,7 @@ return function(mod)
 
     local target
     if pane == "party" then
-      target = self:listFor("party")[self.partySlot]
+      target = partyMonAtRow(self, self.partySlot)
     else
       target = boxMonAt(save, save.currentBox, self.boxSlot)
     end
@@ -769,13 +865,12 @@ return function(mod)
       -- a box.  No count changes, so no capacity question, which is why a full
       -- party and a full box can still trade.
       if pane == "party" then
-        self:listFor("party")[self.partySlot] = held.mon
+        partyReplace(self, self.partySlot, held.mon)
       else
         boxReplace(save, save.currentBox, self.boxSlot, held.mon)
       end
       if held.pane == "party" then
-        local list = self:listFor("party")
-        table.insert(list, math.min(held.index, #list + 1), target)
+        partyPut(self, held.row, target)
       else
         boxPut(save, held.box, held.cell, target)
       end
@@ -805,10 +900,9 @@ return function(mod)
         return
       end
       if pane == "party" then
-        -- the party closes up, so it lands at the end and the cursor follows
-        local list = self:listFor("party")
-        list[#list + 1] = held.mon
-        self.partySlot = #list
+        -- lands in the row you aimed at, and the array is re-sorted around it
+        -- so the order you can see is the order a battle will use
+        partyPut(self, self.partySlot, held.mon)
       else
         -- the box does not: it lands in the cell you aimed at, and the cursor
         -- is already on it
@@ -829,8 +923,7 @@ return function(mod)
     if not held then return end
     self.held = nil
     if held.pane == "party" then
-      local list = self:listFor("party")
-      table.insert(list, math.min(held.index, #list + 1), held.mon)
+      partyPut(self, held.row, held.mon)
       self.partyTouched = true
     else
       boxPut(self.game.save, held.box, held.cell, held.mon)
