@@ -409,7 +409,10 @@ do
   T.check(list.maxVisible ~= nil and list.maxVisible < Boxes.COUNT,
     "showing part of the list and scrolling the rest")
   T.eq(list.th, list.maxVisible * 2 + 2, "two tile rows per visible box plus the border")
-  T.eq(list.title, "CHANGE BOX", "under the vanilla heading")
+  T.check(list.title:find("CHANGE BOX", 1, true) ~= nil, "under the vanilla heading")
+  -- Menu whites out exactly as many tiles as the title is wide and sits it on
+  -- the top rule, so the padding is what keeps the rule off the C and the X
+  T.eq(list.title, " CHANGE BOX ", "padded so the frame does not touch the letters")
 
   -- it opens on the box you are in, not on BOX 1
   game.save.currentBox = 9
@@ -435,6 +438,76 @@ do
   game.release()
   T.eq(game.save.currentBox, 7, "and choosing one opens it")
   T.eq(game.stack:top(), nil, "closing the list behind it")
+end
+
+-- The scroll arrow is the mod's own triangle, drawn INSIDE the frame.  Menu
+-- sits its "more below" glyph on the bottom border row, over the frame's own
+-- rule and one tile from its corner; this screen hides that one and draws its
+-- own in the spare interior column instead, so the check is both halves: no
+-- $EE anywhere, and a triangle clear of every edge.
+do
+  local Font = require("src.render.Font")
+  Font.load(Data)
+  local Theme = require("src.ui.Theme")
+
+  local boxes = {}
+  for i = 1, Boxes.COUNT do boxes[i] = {} end
+  boxes[1][1] = mon("FIXMON_A")
+  local game = fakeGame()
+  game.save.boxes = boxes
+  forgetGrid()
+  local screen = factory.new(game)
+  drive(game, screen, "up", "a")
+  local list = game.stack:top()
+
+  local function capture(menu)
+    local rects, codes = {}, {}
+    local realRect, realCode = love.graphics.rectangle, Font.drawCode
+    love.graphics.rectangle = function(_, x, y, w, h)
+      rects[#rects + 1] = { x = x, y = y, w = w, h = h }
+    end
+    Font.drawCode = function(code) codes[#codes + 1] = code end
+    local ok, err = pcall(function() menu:draw() end)
+    love.graphics.rectangle, Font.drawCode = realRect, realCode
+    T.check(ok, "the box list draws without error (" .. tostring(err) .. ")")
+    return rects, codes
+  end
+
+  local rects, codes = capture(list)
+  T.eq(#list.items, Boxes.COUNT, "the draw leaves the full list behind it")
+
+  local moreArrows = 0
+  for _, c in ipairs(codes) do
+    if c == Theme.moreArrow then moreArrows = moreArrows + 1 end
+  end
+  T.eq(moreArrows, 0, "Menu's own border-row scroll glyph is never drawn")
+
+  -- the triangle: a 7-wide row and three narrower ones under it, all of them
+  -- inside the frame rather than on it
+  local widest, tri = 0, nil
+  local x1, y1 = (list.tx + 1) * 8, (list.ty + 1) * 8
+  local x2, y2 = (list.tx + list.tw - 1) * 8, (list.ty + list.th - 1) * 8
+  for _, r in ipairs(rects) do
+    if r.h == 1 and r.w > widest then widest, tri = r.w, r end
+  end
+  T.eq(widest, 7, "a 7-pixel triangle base, the same arrow the grid uses")
+  T.check(tri.x >= x1 and tri.x + tri.w <= x2,
+    "inside the frame's left and right rules")
+  T.check(tri.y >= y1 and tri.y + 4 <= y2,
+    "and inside its top and bottom ones, not drawn over the border")
+
+  -- scrolled to the end there is nothing below, so no arrow at all
+  for _ = 1, Boxes.COUNT - 1 do
+    game.press("down") ; list:update() ; game.release()
+  end
+  T.eq(list.index, Boxes.COUNT, "at the last box")
+  local endRects = capture(list)
+  local endWidest = 0
+  for _, r in ipairs(endRects) do
+    if r.h == 1 and r.w > endWidest then endWidest = r.w end
+  end
+  T.check(endWidest < 7, "and no arrow once there is nothing below")
+  game.stack:pop()
 end
 
 -- SELECT belongs to the box: it opens SORT there, and is still the shortcut

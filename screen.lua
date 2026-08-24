@@ -1198,16 +1198,53 @@ return function(mod)
     -- Twelve rows at the vanilla two tiles each would need 26 of the 18 tile
     -- rows there are, so the box shows six and scrolls; it hangs from the
     -- bottom edge, which leaves the header naming the open box uncovered.
+    --
+    -- The width is one tile more than the labels need (Menu grows a box to
+    -- widest + 3 and never past what it is handed), which buys the spare
+    -- interior column on the right that the scroll arrow lives in.
     local th = BOX_LIST_VISIBLE * 2 + 2
     local menu = Menu.new(game, items, {
-      tx = 4, ty = math.max(0, 18 - th), tw = 16, th = th,
-      maxVisible = BOX_LIST_VISIBLE, title = Strings("CHANGE BOX"),
+      tx = 3, ty = math.max(0, 18 - th), tw = 17, th = th,
+      maxVisible = BOX_LIST_VISIBLE,
+      -- Menu whites out exactly as many tiles as the title is wide and puts
+      -- it straight onto the top rule, so an unpadded title has the rule
+      -- running into its first and last letter.  The padding is added here
+      -- rather than inside the string so the catalog key stays the words.
+      title = " " .. Strings("CHANGE BOX") .. " ",
       noSound = true,
     })
     -- open on the box you are in rather than on BOX 1: with only half the
     -- list visible, starting anywhere else hides where you are
     menu.index = game.save.currentBox
     menu:clampScroll()
+
+    -- Menu sits its own "more below" glyph on the bottom BORDER row, on top
+    -- of the frame's own bottom rule and one tile from its corner, which is
+    -- the overlap you can see.  So the parent draw is handed a list that
+    -- stops at the last visible row -- nothing left to point at, no glyph --
+    -- and the arrow is redrawn as this mod's own triangle, in the spare
+    -- interior column beside the bottom row, clear of every edge.
+    local baseDraw = menu.draw
+    local views = {}
+    menu.draw = function(m)
+      local all = m.items
+      local view = views[m.scroll]
+      if not view then
+        view = {}
+        for i = 1, math.min(#all, m.scroll + m.maxVisible) do view[i] = all[i] end
+        views[m.scroll] = view
+      end
+      m.items = view
+      local ok, err = pcall(baseDraw, m)
+      m.items = all
+      if not ok then error(err, 0) end
+      if m.scroll + m.maxVisible < #all then
+        ink(BLACK)
+        arrow((m.tx + m.tw - 2) * 8, (m.ty + m.th - 2) * 8 + 2, "down")
+        love.graphics.setColor(1, 1, 1, 1)
+      end
+    end
+
     game.stack:push(menu)
   end
 

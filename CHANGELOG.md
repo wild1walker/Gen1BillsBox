@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.13
+
+- **The CHANGE BOX heading no longer touches its frame.** The bordered widget
+  whites out exactly as many tiles as the title is wide and sits it straight on
+  the top rule, so an unpadded heading has the rule running into the C and the
+  X. The title is padded a tile on each side; the padding lives at the call
+  rather than inside the string, so the translation key stays the two words.
+- **The scroll arrow moved off the border and inside it.** The widget's own
+  "more below" glyph is drawn on the bottom border row, over the frame's rule
+  and a tile from its corner. The box list now hides that one — the draw is
+  handed a list that stops at the last visible row, so there is nothing left to
+  point at — and draws the mod's own triangle instead, in a spare interior
+  column beside the bottom row, clear of every edge. Which also makes it the
+  same arrow as the grid cursor and the header's two.
+- The pop-up is a tile wider (and starts a tile further left) to buy that
+  column: the widget grows a box to fit its widest label and never past what it
+  is handed, so the room had to be asked for.
+
 ## 1.0.12
 
 - **CHANGE BOX is a bordered pop-up too.** A on the box header used to open a
