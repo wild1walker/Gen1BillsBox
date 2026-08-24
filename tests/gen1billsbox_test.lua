@@ -584,21 +584,24 @@ do
 
   -- the flash: lit for the first stretch of each cycle, dark for the rest,
   -- and only ever the POKeMON in your hand
+  -- sixteen steps lit, eight dark, at the engine's sixty a second
   screen.blink = 0
   T.eq(#drawn(), 2, "at the top of the cycle the carried one is lit")
-  screen.blink = 45
+  screen.blink = 15
+  T.eq(#drawn(), 2, "still lit at the end of the lit stretch")
+  screen.blink = 16
   local dark = drawn()
-  T.eq(#dark, 1, "later in the cycle it is dark")
+  T.eq(#dark, 1, "dark for the rest of it")
   T.eq(dark[1].mon, boxB, "and what is left is the one that is NOT in your hand")
-  screen.blink = 59
+  screen.blink = 23
   T.eq(#drawn(), 1, "still dark at the end of the cycle")
-  screen.blink = 60
+  screen.blink = 24
   T.eq(#drawn(), 2, "and lit again when it turns over")
 
   -- nothing flashes when nothing is in hand
   drive(game, screen, "b")
   T.check(screen.held == nil, "with an empty hand")
-  screen.blink = 45
+  screen.blink = 20
   T.eq(#drawn(), 2, "both POKeMON stay lit through the whole cycle")
 end
 
@@ -1370,12 +1373,19 @@ do
     "COLLAPSE|BY DEX|BY LEVEL|BY NAME|BY TYPE|UNDO|CANCEL",
     "and an UNDO row once there is something to undo")
 
-  -- choosing one closes the menu and does the work
-  for _, item in ipairs(menu.items) do
-    if item.value == "collapse" then menu.onChoose(item, menu) end
-  end
+  -- it is a bordered pop-up like the per-POKeMON rows START opens, hanging
+  -- from the bottom edge so it never covers the header naming the box
+  T.eq(menu.th, #menu.items * 2 + 2, "two tile rows per item plus the border")
+  T.eq(menu.ty + menu.th, 18, "with its bottom edge on the last row")
+  T.check(menu.tx + menu.tw <= 20, "and inside the screen")
+
+  -- choosing a row: A on the menu, the way the player does it.  Menu pops
+  -- itself and then runs the row.
+  game.press("a")
+  menu:update()
+  game.release()
   T.eq(game.stack:top(), nil, "choosing a row closes the menu")
-  game.stack.states = {}
+  T.eq(grid(screen), "AB" .. string.rep(".", 18), "and COLLAPSE did its work")
 
   -- with something in hand there is no menu at all
   drive(game, screen, "a")

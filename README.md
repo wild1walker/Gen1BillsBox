@@ -103,7 +103,9 @@ OG modes replace the lot. The screen asks; the mode answers.
 
 The cursor in the grid is an arrow in the band above a POKéMON's head,
 pointing down at it, and the same arrow **hollow** while that POKéMON is in
-your hand.
+your hand. The box header's two arrows and its own selector are that same
+triangle drawn on another axis — one shape, one row, aligned by construction
+rather than by nudging coordinates until a font glyph looked close.
 
 Across the cell the icon is centred, 3 in from one side and 4 from the other,
 which is as centred as 16 pixels get inside the 23 between two rules. Down the
@@ -132,9 +134,9 @@ exactly as many cells as a box has room, a full box has no empty cell to aim
 at — so a full party and a full box can still trade, and nothing is ever
 refused for want of space.
 
-A POKéMON in your hand **slowly flashes**. Four shades cannot dim one, so it
-blinks, but lit far longer than dark — the thing flashing is the thing you are
-trying to look at.
+A POKéMON in your hand **flashes**. Four shades cannot dim one, so it blinks —
+16 steps lit, 8 dark, so it stays lit twice as long as it is dark, because the
+thing flashing is the thing you are trying to look at.
 
 ## Sorting
 
@@ -148,6 +150,11 @@ trying to look at.
 | **BY NAME** | Alphabetical, by nickname where there is one. |
 | **BY TYPE** | Grouped by primary type, alphabetically — the data carries type *names* rather than the cart's numbering, so there is no other order to honour. |
 | **UNDO** | One step, and only while it would still work. |
+
+It is a bordered pop-up, not a screen: the same widget with the same chrome as
+the per-POKéMON rows START opens, hanging from the bottom edge the way the
+party menu's own submenu does, so it never covers the header naming the box you
+are sorting.
 
 Every sort ends the same way — the box closed up into cells 1..n — so COLLAPSE
 is simply the sort that changes no order, and the rest are that plus a

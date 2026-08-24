@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.11
+
+- **The flash is faster** — 16 steps lit, 8 dark, where it was 40 and 20. Still
+  lit twice as long as it is dark, because the thing flashing is the thing you
+  are trying to look at, but quick enough now to read as a flash rather than as
+  something switching on and off.
+- **One arrow, three directions.** The grid's cursor, the box header's two
+  arrows and the header's own selector are now the same triangle drawn on
+  whichever axis is asked for. The selector used to be the font's `$ED` glyph,
+  which sits inside an 8×8 cell with its own padding and so could not be lined
+  up with a triangle drawn beside it however the coordinates were nudged. All
+  three now share a row and a shape by construction.
+- **SORT is a bordered pop-up**, not a full screen. It is the same widget with
+  the same chrome as the per-POKéMON rows START opens, hanging from the bottom
+  edge the way the party menu's own submenu does, so it never covers the header
+  naming the box you are sorting.
+
 ## 1.0.10
 
 - **SELECT over the box opens SORT.** COLLAPSE, BY DEX, BY LEVEL (strongest

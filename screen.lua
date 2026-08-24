@@ -136,8 +136,7 @@ return function(mod)
   --
   -- Centred on the ICON rather than on the cell, because "above them" is what
   -- it is pointing at, and so the two stay together if either ever moves.
-  local ARROW_W, ARROW_H = 7, 4
-  local ARROW_DX = ICON_DX + math.floor((ICON - ARROW_W) / 2)  -- 8
+  local ARROW_DX = ICON_DX + math.floor((ICON - 7) / 2)  -- 8
   local ARROW_DY = 2
 
   local HEADER_TH = 3                   -- tiles
@@ -164,11 +163,11 @@ return function(mod)
   local ANIM_STEPS = 8
 
   -- A POKeMON in your hand flashes.  Four shades cannot dim one, so it blinks
-  -- the way everything on a Game Boy blinks -- but slowly, and on far longer
-  -- than off, because the thing flashing is the thing you are trying to look
-  -- at.  Two thirds of a second lit, a third dark, at the engine's sixty
-  -- steps.
-  local FLASH_PERIOD, FLASH_ON = 60, 40
+  -- the way everything on a Game Boy blinks: lit twice as long as it is dark,
+  -- because the thing flashing is the thing you are trying to look at, but
+  -- quick enough to read as a flash rather than as something switching on and
+  -- off.  Sixteen steps lit and eight dark, at the engine's sixty a second.
+  local FLASH_PERIOD, FLASH_ON = 24, 16
 
   -- One counter drives both, wrapped at a common multiple so neither jumps
   -- when it turns over.
@@ -188,28 +187,41 @@ return function(mod)
     love.graphics.setColor(shade[1], shade[2], shade[3], 1)
   end
 
-  -- A 4x7 solid triangle: the box header's arrows.  dir 1 points right, -1
-  -- left.
-  local function triangle(x, y, dir)
-    for i = 0, 3 do
-      local px = dir > 0 and (x + i) or (x + 3 - i)
-      love.graphics.rectangle("fill", px, y + i, 1, 7 - i * 2)
-    end
-  end
+  -- ------- one arrow, three directions
+  --
+  -- The cursor in the grid, the box header's two arrows and the header's own
+  -- selector are all THE SAME TRIANGLE, drawn on whichever axis is asked for:
+  -- a long edge of 7 tapering to a point over 4.  They used to be two
+  -- different shapes plus a font glyph, and the glyph was the worst of the
+  -- three -- it sits inside an 8x8 cell with its own padding, so it could not
+  -- be lined up with a triangle drawn beside it however the coordinates were
+  -- nudged.
+  --
+  -- Hollow leaves the long edge and the two tapering sides, which is what
+  -- reads as "outlined" rather than "smaller" at this size.
+  local ARROW_LONG, ARROW_SHORT = 7, 4
 
-  -- The cursor: a 7x4 triangle pointing down.  Solid is "the cursor is here";
-  -- hollow is "and it is carrying something", which is the same filled/unfilled
-  -- distinction the party menu's own two cursor glyphs carry ($ED and $EC).
-  local function downArrow(x, y, hollow)
-    for row = 0, ARROW_H - 1 do
-      local left, width = x + row, ARROW_W - row * 2
-      if not hollow or width <= 2 then
-        love.graphics.rectangle("fill", left, y + row, width, 1)
-      elseif row == 0 then
-        love.graphics.rectangle("fill", left, y + row, width, 1)
+  local function arrow(x, y, dir, hollow)
+    for i = 0, ARROW_SHORT - 1 do
+      local span = ARROW_LONG - i * 2
+      local whole = not hollow or span <= 2 or i == 0
+      if dir == "down" then
+        local left = x + i
+        if whole then
+          love.graphics.rectangle("fill", left, y + i, span, 1)
+        else
+          love.graphics.rectangle("fill", left, y + i, 1, 1)
+          love.graphics.rectangle("fill", left + span - 1, y + i, 1, 1)
+        end
       else
-        love.graphics.rectangle("fill", left, y + row, 1, 1)
-        love.graphics.rectangle("fill", left + width - 1, y + row, 1, 1)
+        -- the same triangle a quarter turn round: columns instead of rows
+        local px = dir == "right" and (x + i) or (x + ARROW_SHORT - 1 - i)
+        if whole then
+          love.graphics.rectangle("fill", px, y + i, 1, span)
+        else
+          love.graphics.rectangle("fill", px, y + i, 1, 1)
+          love.graphics.rectangle("fill", px, y + i + span - 1, 1, 1)
+        end
       end
     end
   end
@@ -1044,29 +1056,40 @@ return function(mod)
   -- SELECT over the box.  Refused with a POKeMON in hand, because a sort that
   -- reordered the box around one that is not in it reads as the box shuffling
   -- itself for no reason.
+  --
+  -- A bordered pop-up rather than a screen: this is the same kind of thing as
+  -- the per-POKeMON rows START opens, so it is the same widget with the same
+  -- chrome, anchored to the bottom the way the party menu's own submenu is
+  -- (`Font.drawBox(9, 17 - n * 2 - 1, ...)` in src/ui/PartyMenu.lua).  It has
+  -- no title for the same reason that one does not: the rows say what they
+  -- are, and a title would cost two more tile rows out of eighteen.
   function Screen:openSortMenu()
     if self.held then return end
     local game = self.game
     local items = {}
     for _, row in ipairs(SORT_LABELS) do
-      items[#items + 1] = { label = Strings(row[1]), value = row[2] }
+      local mode = row[2]
+      items[#items + 1] = {
+        label = Strings(row[1]),
+        value = mode,
+        onSelect = function() self:sortBox(mode) end,
+      }
     end
     if self:canUndoSort() then
-      items[#items + 1] = { label = Strings("UNDO"), value = "undo" }
+      items[#items + 1] = {
+        label = Strings("UNDO"),
+        value = "undo",
+        onSelect = function() self:undoSort() end,
+      }
     end
     items[#items + 1] = { label = Strings("CANCEL"), value = "cancel" }
 
-    game.stack:push(ListMenu.new(game, Strings("SORT BOX"), items, {
-      noSound = true,
-      kind = "gen1billsbox_sort",
-      onChoose = function(item, list)
-        if item.value == "undo" then
-          self:undoSort()
-        elseif item.value ~= "cancel" then
-          self:sortBox(item.value)
-        end
-        list:close()
-      end,
+    -- Menu grows its own width to the widest label; the height is the vanilla
+    -- two rows per item plus the border, and the box hangs from the bottom
+    -- edge so it never covers the header telling you which box you are sorting.
+    local th = #items * 2 + 2
+    game.stack:push(Menu.new(game, items, {
+      tx = 8, ty = math.max(0, 18 - th), tw = 12, th = th, noSound = true,
     }))
   end
 
@@ -1302,11 +1325,12 @@ return function(mod)
     local game = self.game
     ink(BLACK)
     Font.drawBox(0, 0, 20, HEADER_TH)
-    local focused = self.pane == "header"
     ink(BLACK)
-    triangle(8, 8, -1)
-    triangle(148, 8, 1)
-    if focused then Font.drawCode(Theme.cursor, 16, 8) end
+    -- the two box arrows and the selector between them: same shape, same
+    -- height, same row, so they line up by construction rather than by luck
+    arrow(8, 8, "left")
+    arrow(148, 8, "right")
+    if self.pane == "header" then arrow(16, 8, "right") end
     Font.draw(Strings("BOX %d", game.save.currentBox), 24, 8)
     local count = ("%d/%d"):format(#Boxes.active(game.save), Boxes.CAPACITY)
     Font.draw(count, 144 - Font.width(count), 8)
@@ -1365,7 +1389,7 @@ return function(mod)
         -- the cursor sits in the band over the POKeMON's head and points at
         -- it; hollow says the POKeMON under it is the one in your hand
         ink(BLACK)
-        downArrow(x + ARROW_DX, y + ARROW_DY, self.held ~= nil)
+        arrow(x + ARROW_DX, y + ARROW_DY, "down", self.held ~= nil)
       end
     end
   end
