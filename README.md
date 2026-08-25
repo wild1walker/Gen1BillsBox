@@ -404,3 +404,17 @@ layout this README claims.
 
 This package contains no ROM-derived assets. Pokémon names and imagery are
 trademarks of their respective owners; this is an unofficial fan-made mod.
+
+---
+
+## Credits
+
+By **Wild**.
+
+Built on the native storage, rendering and mod platform of [Pokemon Gen1Recomp](https://github.com/bryanthaboi/gen1recomp), and on the
+[pret](https://github.com/pret) disassembly of Pokemon Red, Blue and Yellow -- `engine/menus/pc.asm`,
+`engine/menus/pokemon_pc.asm` and `engine/pokemon/bills_pc.asm` are the screens
+this mod replaces, and what they do is what it is measured against.
+
+The box grid itself is an homage to **Game Freak**'s, which is the shape every
+storage system since has been arguing with.
