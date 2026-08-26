@@ -31,6 +31,7 @@ return {
       "LEFT out of the first column crosses to the party and RIGHT crosses back; SELECT does it from the party, and opens SORT from the box side",
       "UP out of the top row lands on the box header, where LEFT and RIGHT change box and A opens the twelve-box list -- a bordered pop-up showing six boxes at a time, opening on the one you are in, each row carrying how full that box is",
       "one line under the grid naming what the cursor is on, or 'Move to where?' while something is carried",
+      "an extension point on the per-POKeMON popup: another mod hands it rows through mod.find('Gen1BillsBox').exports.actions.provide(fn, mod.id) and they land between this screen's own verbs and CANCEL, which stays last -- providers are asked in registration order and every one of them contributes, because a popup is a list rather than a single answer",
       "PLACE CRY (on by default), HOLD TO MOVE (on by default) and OPEN ON, in the mod manager",
     },
     known = {

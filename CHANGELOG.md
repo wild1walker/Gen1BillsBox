@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.2.0
+
+- **The per-POKéMON popup takes rows from other mods.** START over a POKéMON
+  has always been this screen's own three verbs; it now asks whoever is
+  installed whether they have a fourth. A mod that can do something *to* a
+  POKéMON gets the row where the player already goes looking for verbs, and
+  the alternative — reaching in and patching this screen's internals from the
+  outside — stops being the only way to do it.
+- The seam is `mod.find("Gen1BillsBox").exports.actions.provide(fn, mod.id)`,
+  the same shape Gen1Dex publishes for its AREA caption: providers are asked
+  in the order they registered, every one of them contributes (a popup is a
+  list, not a single answer), and the callback is handed the game, the
+  POKéMON and which pane it is on so a mod can offer a row on the box side
+  and not the party side.
+- **Rows land between the screen's own verbs and CANCEL.** CANCEL stays last
+  however many arrive: it is where a thumb expects the way out to be, and a
+  mod's row must not be able to move it.
+- **The popup hangs off the bottom edge now**, the way CHANGE BOX already
+  did. The vanilla three rows put its bottom edge exactly on the last tile
+  row, so a fourth row would have run off the screen; anchoring it instead
+  keeps the POKéMON the popup is about visible above it however tall it gets.
+- A provider that throws is dropped and reported rather than taking the box
+  down with it, and a second registration from the same owner replaces the
+  first — a mod's entry chunk runs again on every hot reload, and a stale
+  provider closed over the previous load's tables is the one that would
+  otherwise answer.
+- Nothing changes with no provider registered: the popup is the same three
+  rows, in the same order, and the suite asserts that separately from the
+  seam.
+
 ## 1.1.1
 
 - **The party menu colours are out again**, and the POKéMON screen is the

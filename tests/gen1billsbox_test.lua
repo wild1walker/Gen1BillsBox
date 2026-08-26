@@ -389,6 +389,125 @@ do
   T.eq(game.stack:top(), nil, "and an empty slot opens nothing")
 end
 
+-- ------- what another mod gets to put in that popup
+--
+-- The seam exists so a mod that can do something TO a POKeMON gets the row
+-- where the player already looks for verbs, instead of reaching in and
+-- patching this screen from the outside.  Rows land between this screen's own
+-- verbs and CANCEL, and CANCEL stays last however many arrive.
+
+local actions = run.loader.exports[run.mod.manifest.id].actions
+T.check(type(actions) == "table", "the popup publishes an extension point")
+T.eq(type(actions.provide), "function", "with a provide()")
+T.eq(type(actions.rows), "function", "and a way to ask what it would grow")
+
+do
+  local seen = {}
+  local drop = actions.provide(function(_, aMon, pane)
+    seen[#seen + 1] = pane
+    return { { label = "REMEMBER", onSelect = function() end } }
+  end, "Test.Remember")
+
+  local game = fakeGame({ mon("FIXMON_A") }, { mon("FIXMON_B") })
+  forgetGrid()
+  local screen = factory.new(game)
+  drive(game, screen, "start")
+  local menu = game.stack:top()
+  T.eq(labels(menu.items), "STATS|RELEASE|REMEMBER|CANCEL",
+    "a provider's row lands before CANCEL, which stays the way out")
+  T.eq(seen[1], "box", "and the provider is told which pane it is on")
+  -- the vanilla three rows put the box's bottom edge exactly on the last tile
+  -- row, so a fourth had to move the box rather than run off the screen
+  T.check(menu.ty + menu.th <= 18, "and the popup stays on the screen")
+  T.check(menu.tx + menu.tw <= 20, "on both axes")
+  game.stack:pop()
+
+  drive(game, screen, "left", "start")
+  T.eq(labels(game.stack:top().items), "STATS|REMEMBER|CANCEL",
+    "the party side grows the row too, still without RELEASE")
+  T.eq(seen[2], "party", "and knows it is the party side")
+  game.stack:pop()
+
+  drop()
+  -- back across to the box side, where RELEASE is, so the row that is gone is
+  -- the only difference from the first assertion in this block
+  drive(game, screen, "right", "start")
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|CANCEL",
+    "unregistering takes the row back out")
+  game.stack:pop()
+end
+
+do
+  -- two mods, two rows, in the order they registered
+  local dropA = actions.provide(function() return { { label = "AAA" } } end, "A")
+  local dropB = actions.provide(function() return { { label = "BBB" } } end, "B")
+  local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
+  local screen = factory.new(game)
+  drive(game, screen, "start")
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|AAA|BBB|CANCEL",
+    "two providers both get a row, in registration order")
+  game.stack:pop()
+  dropA(); dropB()
+end
+
+do
+  -- the same owner registering twice replaces rather than stacks, which is
+  -- what a hot reload does
+  local drop1 = actions.provide(function() return { { label = "ONE" } } end, "same")
+  local drop2 = actions.provide(function() return { { label = "TWO" } } end, "same")
+  local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
+  local screen = factory.new(game)
+  drive(game, screen, "start")
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|TWO|CANCEL",
+    "a second registration from one owner replaces the first")
+  game.stack:pop()
+  drop1(); drop2()
+end
+
+do
+  -- a provider that throws is dropped and reported rather than taking the
+  -- box down with it, and the one after it is still asked
+  local dropBad = actions.provide(function() error("boom") end, "bad")
+  local dropGood = actions.provide(function() return { { label = "GOOD" } } end,
+                                   "good")
+  local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
+  local screen = factory.new(game)
+  drive(game, screen, "start")
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|GOOD|CANCEL",
+    "a throwing provider costs its row and nothing else")
+  game.stack:pop()
+  -- and it is not asked a second time
+  drive(game, screen, "start")
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|GOOD|CANCEL",
+    "and it is not asked again")
+  game.stack:pop()
+  dropBad(); dropGood()
+end
+
+do
+  -- rows that are not rows, and a provider with no opinion
+  local dropNil = actions.provide(function() return nil end, "quiet")
+  local dropJunk = actions.provide(function()
+    return { { onSelect = function() end }, "not a row", 7 }
+  end, "junk")
+  local game = fakeGame({ mon("FIXMON_A") })
+  forgetGrid()
+  local screen = factory.new(game)
+  drive(game, screen, "start")
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|CANCEL",
+    "a provider with no opinion and a labelless row add nothing")
+  game.stack:pop()
+  dropNil(); dropJunk()
+end
+
+T.eq(type(actions.provide(nil, "notafunction")), "function",
+  "provide() refuses a non-function and still hands back an unregister")
+T.eq(#actions.rows({ data = Data }, mon("FIXMON_A"), "box"), 0,
+  "and nothing is left registered afterwards")
+
 do
   local game = fakeGame({ mon("FIXMON_A") })
   forgetGrid()

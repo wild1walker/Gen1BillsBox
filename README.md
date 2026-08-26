@@ -344,6 +344,55 @@ again).
   box, and the whole screen runs silent the way the PC session does
   (`BIT_NO_MENU_BUTTON_SOUND`).
 
+## Rows from other mods
+
+START over a POKéMON opens this screen's own three verbs — STATS, RELEASE on
+the box side, CANCEL. It also asks whoever else is installed whether they have
+a fourth. A mod that can do something *to* a POKéMON wants the row where the
+player already goes looking for verbs, and the alternative is that it reaches
+in and patches this file's internals from the outside.
+
+```lua
+local box = mod.find("Gen1BillsBox")
+if box and box.exports.actions then
+  local drop = box.exports.actions.provide(function(game, mon, pane)
+    -- pane is "party" or "box"
+    if pane ~= "box" then return nil end
+    return {
+      { label = "REMEMBER", onSelect = function() ... end },
+    }
+    -- or nil -- nothing to add for this POKéMON
+  end, mod.id)          -- pass your own id; see below
+end
+```
+
+- Providers are asked **in the order they registered**, and **every one of
+  them contributes**. A popup is a list rather than a single answer, so two
+  mods with a row each both get one — unlike Gen1Dex's AREA caption, whose
+  first answer wins.
+- Rows land **between this screen's verbs and CANCEL**. CANCEL stays last
+  however many arrive: it is where a thumb expects the way out to be, and a
+  mod's row must not be able to move it.
+- `pane` is `"party"` or `"box"`, so a row can be offered on one side and not
+  the other.
+- **Pass your own `mod.id`.** A mod's entry chunk runs again on every hot
+  reload and every profile switch, and this registry outlives that. Without an
+  owner the second load stacks a second provider closed over the *first*
+  load's tables, and the stale one is the one that answers. With it, the new
+  registration replaces the old. `provide` also hands back a function that
+  unregisters it again, for a mod that installs one per playthrough.
+- A provider that **throws** is dropped and reported rather than taking the
+  box down with it: a mod that cannot build a row is a missing row, not a box
+  you cannot open. A row with no `label` is skipped for the same reason — it
+  would draw as a blank the cursor could still land on.
+- The popup **hangs off the bottom edge** so it stays on screen however tall
+  it grows, and `Menu` widens it to the widest label, so a long or translated
+  row needs nothing from the caller.
+
+[Gen1Remember](https://github.com/wild1walker/Gen1Remember) is the first mod
+through this seam: it puts a REMEMBER row here that teaches a POKéMON a move
+it has forgotten.
+
 ## Known differences
 
 - **A box stays a compact array.** Gen 1 stores `box[1..n]` with nothing
