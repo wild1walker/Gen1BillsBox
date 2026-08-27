@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.0
+
+The status tint is removed, at the author's request. Icons are drawn as they
+always were, and the palette zone under them is the species colours again.
+Nothing else changed -- the source is byte-identical to what it was before the
+tint went in.
+
 ## 1.4.0
 
 The status tint now reaches **full-colour icon art**.
