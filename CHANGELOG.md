@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.4.0
+
+The status tint now reaches **full-colour icon art**.
+
+It rode a palette zone, and a palette zone only reaches art that goes through
+the shade-remap pass -- which full-colour art sits out by design, since this
+mod marks its rect trueColor precisely so the pass does not repaint it off its
+red channel. So the tint coloured nothing at all for anyone running a
+full-colour icon pack.
+
+The icon is now drawn in the condition's colour instead: LÖVE multiplies an
+image by the current colour, so white is the untouched icon and the tint shifts
+its hue while keeping its own light and dark. That reaches both kinds of art.
+The palette zone stays as well, for the species colours underneath.
+
+The colour comes from `drawColour` in **STATUS COLOURS**
+([Gen1WildQOL](https://github.com/wild1walker/Gen1WildQOL) 1.8.0), so the party,
+the box and the world keep agreeing. Without that mod there is no tint, exactly
+as before.
+
 ## 1.3.0
 
 A POKéMON in the box wears its condition. Poisoned is purple, fainted is grey,
