@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3.0
+
+A POKéMON in the box wears its condition. Poisoned is purple, fainted is grey,
+and the rest of the statuses have their own colour -- over the species colours
+each cell already wears, so a poisoned CHARMANDER still reads as a CHARMANDER.
+It applies to the grid and to the party column beside it.
+
+The colours come from **STATUS COLOURS** in
+[Gen1WildQOL](https://github.com/wild1walker/Gen1WildQOL) 1.6.0, which owns one
+table of what each condition looks like so the box, the party and the dex agree
+instead of drifting apart. Without that mod installed there is no tint and the
+cells are the species colours exactly as before.
+
+It rides the per-cell zone this mod already builds, so it costs nothing extra
+to draw and full-colour art still sits out the pass untouched.
+
 ## 1.2.0
 
 - **The per-POKéMON popup takes rows from other mods.** START over a POKéMON
