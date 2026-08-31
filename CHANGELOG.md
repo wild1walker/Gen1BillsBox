@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.6.0
+
+Gen1WildUI carried this as an overlay while it was ahead of a release here; it
+shipped in the bundle's 1.22.0. Same code, in the mod that owns it.
+
+- **A full-colour icon is clamped to its cell on both axes.** The width was
+  decided by the height — `w = info.h > ICON and ICON or info.w` — so a sprite
+  wider than the 16px cell but no taller kept its full width and drew past its
+  square, and a taller-but-narrower one had its width forced up to 16 it never
+  asked for. Reported as black boxes around some POKéMON in the box on a dark
+  page.
+- The page under a full-colour icon is painted before the art goes in.
+  `PaletteFX.markTrueColor` blits raw so the icon keeps its own colours, and
+  raw means the white page under it stays white when everything around it goes
+  black. With no theme provider installed this is inert, so a standalone
+  install is unchanged.
+
+The clamp is exported as `iconRect` — it is the whole of what went wrong and
+it is pure, where everything around it needs a game, a save and a file on disk.
+
 ## 1.5.0
 
 The status tint is removed, at the author's request. Icons are drawn as they

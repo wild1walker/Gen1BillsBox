@@ -73,6 +73,29 @@
 -- exactly and leave no band above a head to put an arrow in.
 
 return function(mod)
+
+  -- ------- the matte behind true-colour art
+  --
+  -- `PaletteFX.markTrueColor` blits a rectangle RAW so a coloured icon keeps
+  -- its own colours instead of being read as four shades.  Raw means raw: the
+  -- white page under it stays white when everything around it goes black,
+  -- which is the white box behind every icon on a dark screen.
+  --
+  -- So the rectangle is painted with what the theme will make of it BEFORE
+  -- the art goes in.  Only ever inside a rectangle about to be marked -- a
+  -- dark rectangle anywhere else is shade-3 pixels, which the theme maps to
+  -- the page's ink and puts a hole in the page.
+  --
+  -- Under LIGHT the colour is white, which is what this drew before the theme
+  -- existed, so a build with no theme in it is unchanged.
+  local function matte(x, y, w, h)
+    local theme = type(mod.theme) == "function" and mod.theme() or nil
+    local colour = theme and type(theme.matte) == "function"
+      and theme.matte() or nil
+    if type(colour) ~= "table" then return end
+    love.graphics.setColor(colour[1] / 255, colour[2] / 255, colour[3] / 255, 1)
+    love.graphics.rectangle("fill", x, y, w, h)
+  end
   local Boxes = require("src.pokemon.Boxes")
   local Font = require("src.render.Font")
   local Menu = require("src.ui.Menu")
@@ -398,6 +421,23 @@ return function(mod)
   -- the rect drawIcon will cover when it is full colour (mark it and leave it
   -- alone).  drawIcon takes a 16x16 frame out of a taller sheet and draws
   -- anything shorter whole, at whatever size the file is.
+  -- The size a full-colour icon draws at: its own measurements, each clamped
+  -- to the cell.  Split out and published because the clamp is the whole of
+  -- what went wrong and it is pure -- everything around it needs a game, a
+  -- save and a file on disk.
+  --
+  -- Each axis clamps against ITS OWN measurement.  The width used to be
+  -- decided by the height: `w = info.h > ICON and ICON or info.w`.  A sprite
+  -- wider than the cell but no taller kept its full width and was drawn past
+  -- its square, which is the black box a player reported around some POKeMON
+  -- in the box on a dark page.
+  local function iconRect(info)
+    if not (info and info.colour) then return nil end
+    return { w = info.w > ICON and ICON or info.w,
+             h = info.h > ICON and ICON or info.h }
+  end
+  mod.exports.iconRect = iconRect
+
   local function fullColourRect(game, mon)
     if not mon then return nil end
     local hit = iconColour[mon]
@@ -406,11 +446,7 @@ return function(mod)
       if not path or name then
         hit = false
       else
-        local info = scanPath(path)
-        hit = info.colour
-          and { w = info.h > ICON and ICON or info.w,
-                h = info.h > ICON and ICON or info.h }
-          or false
+        hit = iconRect(scanPath(path)) or false
       end
       iconColour[mon] = hit
     end
@@ -1499,12 +1535,15 @@ return function(mod)
 
   function Screen:drawIcon(mon, x, y, selected)
     if not mon then return end
+    -- full-colour art must sit out the shade remap, or the pass repaints it
+    -- off its red channel and an orange POKeMON comes out white.  Sitting the
+    -- pass out means sitting the THEME out too, so the page under the art is
+    -- painted first -- see matte above.
+    local rect = fullColourRect(self.game, mon)
+    if rect then matte(x, y, rect.w, rect.h) end
     love.graphics.setColor(1, 1, 1, 1)
     pcall(PartyMenu.drawIcon, self.game, mon, x, y, false, 0,
           selected and self:animAlt() or false)
-    -- full-colour art must sit out the shade remap, or the pass repaints it
-    -- off its red channel and an orange POKeMON comes out white
-    local rect = fullColourRect(self.game, mon)
     if rect then
       pcall(function()
         require("src.render.PaletteFX").markTrueColor(x, y, rect.w, rect.h)

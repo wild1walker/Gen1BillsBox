@@ -1658,5 +1658,41 @@ do
     "SELECT opens nothing while a POKeMON is in your hand")
 end
 
+-- ------- a full-colour icon is clamped to its cell on BOTH axes
+
+do
+  -- The bug a player reported as black boxes around some POKeMON in the box
+  -- on a dark page: `w` was decided by `h`.
+  --
+  --     w = info.h > ICON and ICON or info.w
+  --
+  -- So a sprite WIDER than the 16px cell but no taller kept its full width
+  -- and drew past its square -- and one taller but narrower had its width
+  -- forced up to 16 it never asked for.  Each axis clamps against its own
+  -- measurement now.
+  local iconRect = run.loader.exports[run.mod.manifest.id].iconRect
+  T.eq(type(iconRect), "function", "the clamp is exported")
+
+  T.eq(iconRect({ colour = false, w = 40, h = 40 }), nil,
+    "four-shade art has no full-colour rectangle")
+  T.eq(iconRect(nil), nil, "and neither does a file that would not scan")
+
+  local fits = iconRect({ colour = true, w = 16, h = 16 })
+  T.eq(fits and fits.w, 16, "an icon the size of the cell keeps its width")
+  T.eq(fits and fits.h, 16, "and its height")
+
+  local small = iconRect({ colour = true, w = 12, h = 10 })
+  T.eq(small and small.w, 12, "a smaller one is not stretched to fill it")
+  T.eq(small and small.h, 10, "on either axis")
+
+  local wide = iconRect({ colour = true, w = 32, h = 12 })
+  T.eq(wide and wide.w, 16, "a WIDE icon is cut to the cell -- the reported case")
+  T.eq(wide and wide.h, 12, "while its height, which fits, is left alone")
+
+  local tall = iconRect({ colour = true, w = 12, h = 32 })
+  T.eq(tall and tall.w, 12, "and a TALL one keeps the width it asked for")
+  T.eq(tall and tall.h, 16, "with the height cut instead")
+end
+
 run.release()
 T.finish("Gen1BillsBox")
