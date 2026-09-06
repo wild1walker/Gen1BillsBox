@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.7.0
+
+- **Runs on Gold, Silver and Crystal.** The manifest declares `gen2`, and the
+  same screen is there: the 5x4 grid, the party column, pick up and put down.
+  Gold's own storage is a list of names with one picture beside it, and this
+  replaces all three of its verbs at once — `WITHDRAW`, `DEPOSIT` and
+  `MOVE POKéMON` all land on the grid, because Gold sends them to one place.
+
+- **Free placement and the party's hole, on Gold.** Gold stores a box the way
+  Red does — a compact array — and an array cannot hold a gap, so a POKéMON put
+  down in cell 12 of an empty box used to appear in cell 1, and lifting the
+  second of six let the other four slide up behind it. The arrangement now
+  lives beside the box in this mod's save data, one cell per POKéMON,
+  reconciled on every read; the cartridge's own list is untouched. The party
+  column keeps its hole until the screen closes, by the other mechanism —
+  `save.party` stays dense and sorted by row, because party order is battle
+  order.
+
+- **The carried POKéMON is drawn once.** It used to be a second pass painted on
+  top of the grid while the grid still drew the cursor cell's own occupant
+  underneath: two icons in one cell, one blinking through the other. It is
+  drawn *by* the grid now, in place of the occupant, so the flash is a skipped
+  draw rather than a second sprite.
+
+- **Only the icon under the cursor walks — with no bundle installed.** Gold
+  picks every icon's frame off one clock, so all twenty cells flip together
+  unless something says otherwise. The rule that says otherwise used to live
+  only in Gen1WildUI's icon runtime, which meant a standalone install had
+  nothing honouring it and the whole grid flipped at once. The rule is this
+  mod's own now, installed once on the class, and the bundle's copy composes
+  with it rather than fighting it.
+
+- **`UNDO` on a sort restores the gaps**, not just the order, and releasing a
+  POKéMON takes its own entry out of the arrangement rather than the last one,
+  so nobody else moves.
+
+
 ## 1.6.0
 
 Gen1WildUI carried this as an overlay while it was ahead of a release here; it

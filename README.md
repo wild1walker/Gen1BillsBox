@@ -262,6 +262,38 @@ name over the extracted line, so a localized import keeps its own wording for
 the rest of the sentence, and a translation that does not spell it "PC" is
 left alone.
 
+## On Gold, Silver and Crystal
+
+The box runs on the Gen 2 carts too, and it is the same screen: a 5x4 grid of
+cells, the party in a column beside it, pick up with A and put down where you
+point. Gold's own storage is a list of names with one picture beside it — this
+replaces it, and it replaces all three of the PC's verbs at once, because Gold
+sends `WITHDRAW`, `DEPOSIT` and `MOVE POKéMON` to the same place.
+
+**Gaps work the same way, and for the same reason they had to be built.** Gold
+stores a box the way Red does — a compact array, `#` for the count — and an
+array cannot hold a gap. So the arrangement lives beside the box in this mod's
+own save data, one cell number per POKéMON, reconciled against the box on every
+read. The cartridge's own list is untouched: uninstall the mod and the box is
+exactly what Gold expects. A catch that overflows into the box while you are
+elsewhere, another mod, an imported save — each is reconciled rather than lost,
+with extra POKéMON taking the lowest free cells.
+
+**The party column keeps its hole until you close the screen**, and that is
+deliberately a different mechanism: `save.party` is never sparse, only which
+*row* each member is drawn in, with the array kept sorted by that row. Party
+order is battle order, so the list and the screen can never disagree about who
+leads, and closing the box has nothing to collapse.
+
+**Mail rides with its POKéMON.** `sPartyMail` is keyed by party slot, so moving
+a member without moving its letter would hand the next one along somebody
+else's.
+
+**Only the icon under the cursor walks.** Gold picks every icon's frame off one
+clock, so left alone all twenty cells flip together. The one you are pointing
+at animates; the rest stand still, and the one in your hand flashes while it is
+there.
+
 ## Settings
 
 In the mod manager's row for this mod:
