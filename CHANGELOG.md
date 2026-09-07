@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.7.1
+
+- **BILL'S BOX now reaches Gold's PC menu.** Reported as "when I go to the PC,
+  BILL'S BOX isn't replacing BILL'S PC" — and it wasn't, on the one menu a
+  player presses first. Gold has *two* PC menus where Red has one: the
+  "Access whose PC?" chooser (`src/ui/gen2/CenterPcMenu.lua`) and the storage
+  verbs behind it (`src/ui/gen2/PcMenu.lua`). Only the second runs the
+  `ui.pc.items` hook this mod renames through, so the row actually carrying
+  the words "BILL's PC" had no seam on it and kept its name while every other
+  surface said BOX.
+
+  Its two sibling PC screens both call that hook and its own comments describe
+  the same contract, so the missing call looks like an oversight in the engine
+  rather than a decision — worth raising there. Until it is, the row and the
+  page it opens with ("BILL's PC accessed.") are renamed by wrapping the two
+  methods that produce them. `<PLAYER>'s PC` and `PROF.OAK's PC` are other
+  people's machines and keep their names.
+
+  `tests/goldpcname_gen2_test.lua` drives the cart's own `CenterPcMenu` rather
+  than a stand-in, because a stand-in's worth of distance between what the mod
+  hooked and what the game drew is the whole bug.
+
 ## 1.7.0
 
 - **Runs on Gold, Silver and Crystal.** The manifest declares `gen2`, and the
