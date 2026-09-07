@@ -294,6 +294,66 @@ clock, so left alone all twenty cells flip together. The one you are pointing
 at animates; the rest stand still, and the one in your hand flashes while it is
 there.
 
+## The GLOBAL BOX
+
+Past the last of your cartridge's boxes the header keeps going: **GLOBAL 1**,
+and one more page every time the last one fills. It is one box, shared by
+every save on your installation — deposit a POKéMON on Wild Green, withdraw it
+on Wild Crystal.
+
+There is also a **SEND** row on a POKéMON's own popup in the party menu, on
+both games, which is the one-press way in without opening the PC at all.
+
+### It lives inside your saves
+
+Which is the whole reason it is shaped the way it is. **Save sync** carries
+exactly two things — your save slots and your mod roster — so a shared box
+kept in a file beside them would not follow you to another machine, would not
+be in a backup of your saves, and would not come back with RESTORE.
+
+So it isn't one list. Every save carries its own **outbox**, inside the save,
+and the GLOBAL pages are all of them laid end to end:
+
+- Your own save's outbox is the only thing you ever write.
+- Every other save on the installation is read, read-only.
+- Taking a POKéMON that came from *another* save writes a **claim** into
+  yours. Claims are read by everybody, so it leaves the box on every
+  cartridge the moment you take it, and the save still holding it lets go the
+  next time it boots.
+
+Two things follow, and they are worth knowing rather than discovering. **A
+deposit is part of a save**, so it is written when the game writes — quit
+without saving after a SEND and the SEND goes with everything else you did.
+And if you delete the save you withdrew *into* before the sender next boots,
+the POKéMON reappears in the sender's outbox: the failure mode is one coming
+back, never one going missing.
+
+### Only what RED could hold
+
+The box keeps one shape, Gen 1's, and the rules are the **Time Capsule's** —
+the engine's own, not new ones invented here. A Johto POKéMON, one holding
+MAIL, an EGG, or one that knows a move RED never heard of is refused, with the
+reason. On Gold the conversion runs on the way in and on the way out; on Red
+there is nothing to convert.
+
+### What a shared page will not do
+
+- **No gaps.** The cell another cartridge's POKéMON sits in is not your save's
+  to record, so the pages are always closed up. One you put down lands in the
+  first free cell and the cursor follows it there.
+- **No swap.** The POKéMON you displaced would have to go back where the
+  carried one came from, and that may be a cell in somebody else's save.
+- **No SORT, and no RELEASE.** A sort would be your save deciding the order of
+  POKéMON in other people's; "gone forever" is not a thing your save gets to
+  decide about one living in another.
+
+Picking one up and pressing **B** puts it back in the cell it came out of, not
+at the end — a claim is simply dropped, and a POKéMON of your own goes back
+under the id it already had.
+
+The whole feature is one switch (**GLOBAL BOX**, below). With it off the box
+screen is the twelve — or fourteen — it always was.
+
 ## Settings
 
 In the mod manager's row for this mod:
@@ -306,6 +366,8 @@ In the mod manager's row for this mod:
 | **FULL BOX NOTE** | on | One line after a catch that overflowed, naming the box it actually went to. See below. |
 | **SWITCH ON FULL** | on | The open box follows a catch that overflowed, instead of staying on the full one. |
 | **BOX ON START** | on | A BOX row on the START menu, opening the same screen the PC opens. |
+| **GLOBAL BOX** | on | The shared GLOBAL pages after your cartridge's own boxes. See above. |
+| **SEND ROW** | on | A SEND row on a POKéMON's popup in the party menu, putting it straight in the GLOBAL BOX. |
 
 ## Catching into a full box
 

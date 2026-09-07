@@ -231,9 +231,10 @@ do
     if entry.id == theirs then cell = index end
   end
   ok(cell ~= nil, "Crystal's POKeMON is visible from Green")
-  local got, how = GlobalBox.withdraw(gb, greenSources(), view, 1, cell)
+  local got, ticket = GlobalBox.withdraw(gb, greenSources(), view, 1, cell)
   ok(type(got) == "table" and got.species == 4, "Green gets the POKeMON")
-  eq(how, "claimed", "by claiming it, not by reaching into Crystal's save")
+  eq(type(ticket) == "table" and ticket.how, "claimed",
+    "by claiming it, not by reaching into Crystal's save")
   eq(#cb.mons, 1, "Crystal's save is untouched -- it is not Green's to write")
   ok(gb.claims[theirs] == true, "the claim is written into Green's own save")
 
@@ -246,9 +247,10 @@ do
 
   -- taking your own needs no claim
   local ownView = GlobalBox.view(greenSources())
-  local own, ownHow = GlobalBox.withdraw(gb, greenSources(), ownView, 1, 1)
+  local own, ownTicket = GlobalBox.withdraw(gb, greenSources(), ownView, 1, 1)
   ok(type(own) == "table" and own.species == 1, "Green takes back its own")
-  eq(ownHow, "removed", "straight out of its own bucket")
+  eq(type(ownTicket) == "table" and ownTicket.how, "removed",
+    "straight out of its own bucket")
   eq(#gb.mons, 0, "which is now empty")
   eq(next(gb.claims), theirs, "and no second claim was written for it")
 
@@ -293,6 +295,59 @@ do
   gb.mons[#gb.mons + 1] = mon(7, "SQUIRTLE")
   local strays = GlobalBox.reconcile(gb, all(true))
   eq(strays, 1, "an entry with no id is dropped rather than shown forever")
+end
+
+do
+  io.write("a withdrawal can be put back exactly where it was\n")
+
+  local green, crystal = newSave(), newSave()
+  local gb, cb = bucketIn(green), bucketIn(crystal)
+  GlobalBox.deposit(gb, {}, mon(1, "BULBASAUR"))
+  local mine = GlobalBox.deposit(gb, {}, mon(7, "SQUIRTLE"))
+  local theirs = GlobalBox.deposit(cb, {}, mon(4, "CHARMANDER"))
+
+  local function sources()
+    return sourcesOf({ "cart:green/slot1", gb, true },
+                     { "cart:crystal/slot1", cb, false })
+  end
+  local function idsInOrder()
+    local out = {}
+    for _, entry in ipairs(GlobalBox.view(sources())) do out[#out + 1] = entry.id end
+    return table.concat(out, ",")
+  end
+
+  local before = idsInOrder()
+
+  -- picking one of your own up and putting it back down again -- B on a box
+  -- screen -- must not read as a second deposit at the end of the box
+  local view = sources()
+  local cell
+  for index, entry in ipairs(GlobalBox.view(view)) do
+    if entry.id == mine then cell = index end
+  end
+  local got, ticket = GlobalBox.withdraw(gb, view, GlobalBox.view(view), 1, cell)
+  ok(got ~= nil, "one of your own comes out")
+  ok(GlobalBox.restore(gb, ticket), "and goes back")
+  eq(idsInOrder(), before, "into the same cell, with the same id")
+  eq(bucketIn(green).seq, 2, "and no new id was minted")
+
+  -- and so must putting back one that was CLAIMED: the claim is dropped, so
+  -- the POKeMON was never moved at all
+  local claimView = GlobalBox.view(sources())
+  local theirCell
+  for index, entry in ipairs(claimView) do
+    if entry.id == theirs then theirCell = index end
+  end
+  local _, claimTicket = GlobalBox.withdraw(gb, sources(), claimView, 1, theirCell)
+  eq(claimTicket.how, "claimed", "someone else's is claimed")
+  eq(#GlobalBox.view(sources()), 2, "and leaves the box")
+  ok(GlobalBox.restore(gb, claimTicket), "restoring drops the claim")
+  eq(idsInOrder(), before, "and the box is exactly as it was")
+  eq(next(gb.claims), nil, "with no claim left behind to reconcile later")
+
+  ok(GlobalBox.restore(gb, { how = "removed", id = mine, mon = mon(7) }) == false,
+    "a restore of one already in the outbox is refused, not duplicated")
+  ok(GlobalBox.restore(gb, nil) == false, "and a restore of nothing is refused")
 end
 
 -- ------------------------------------------------------- pages and the gate

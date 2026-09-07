@@ -1,5 +1,68 @@
 # Changelog
 
+## 1.8.0
+
+- **The GLOBAL BOX.** Past the last of your cartridge's boxes the header keeps
+  going: **GLOBAL 1**, and one more page every time the last one fills. It is
+  one box shared by every save on the installation — deposit a POKéMON on Wild
+  Green, withdraw it on Wild Crystal — and there is a **SEND** row on a
+  POKéMON's own popup in the party menu, on both games, for the times you do
+  not want to open the PC at all.
+
+  **It lives inside the saves**, which is the whole of why it is shaped the way
+  it is. Save sync carries exactly two things: save slot sources
+  (`PUT /sync/save`) and the mod roster (`PUT /sync/mods`). `mod_storage` and
+  `mod_cache` appear nowhere in `src/sync/`, so a shared box kept in either
+  would not follow the player to another machine, would not be in a backup of
+  their saves, and would not come back with RESTORE.
+
+  So it is not one list. Every save carries its own **outbox** in
+  `save.modData[<modId>]` — which both generations back `mod.save` with
+  (`src/core/Game.lua:1222`, `src/core/Game2.lua:199`) — and the GLOBAL pages
+  are all of them laid end to end. Your own save's outbox is the only thing
+  you ever write; every other save is read read-only through the same
+  `SaveData` calls sync itself makes; and withdrawing one that came from
+  another save writes a **claim** into yours, which every cartridge reads, so
+  it leaves the box everywhere at once and the save still holding it lets go
+  the next time it boots.
+
+  Two consequences worth stating. A deposit is part of a save, so it is
+  written when the game writes — quit without saving after a SEND and the SEND
+  goes with everything else you did. And deleting the save a POKéMON was
+  withdrawn *into*, before the sender next boots, puts it back in the sender's
+  outbox: the failure mode is one coming back, never one going missing.
+
+  What may live in it is the **Time Capsule's** rule, reused rather than
+  restated (`src/online/Convert.lua`): a Johto species, a Gen 2 move, a held
+  MAIL or an EGG is refused with the cartridge's own reason. Gold converts on
+  the way in and on the way out; Red has nothing to convert. Only the Gold
+  DEPOSIT needs a Gen 1 dataset — `Convert.toGen2` reads one only as a
+  fallback for a POKéMON whose stats are missing, and the deposit side runs
+  `Stats.ensure` so they never are — so the direction this was asked for
+  (everything out of the Wild Green box and into Wild Crystal) mounts nothing,
+  and the other pays for it once per session.
+
+  A shared page has no gaps, no swap, no SORT and no RELEASE, and each of
+  those follows from the store being shared rather than being a decision taken
+  for its own sake: the cell another cartridge's POKéMON sits in is not this
+  save's to record, a sort would be this save deciding the order of POKéMON in
+  other people's saves, and "gone forever" is not a thing this save gets to
+  decide about one living in another. Picking one up and pressing B puts it
+  back in the cell it came out of rather than at the end of the box — a claim
+  is dropped, and a POKéMON of your own goes back under the id it already had.
+
+  One switch (**GLOBAL BOX**) turns the pages off and one (**SEND ROW**) turns
+  the row off. With the first off the box screen is the twelve — or fourteen —
+  it always was.
+
+- **The suite runs in CI now, under both interpreters.** This repo had only a
+  release workflow, so none of its suites ran on a push. They do now, under
+  LuaJIT *and* Lua 5.4 — the game is LuaJIT and the benches are 5.4, and that
+  gap has cost this suite of mods real bugs. It found one immediately: the Gen
+  2 bench's `Mail.removeSlot` stand-in used `table.remove`, where the cart
+  shifts within a fixed six-slot array — the same shift only while the array
+  happens to be dense, and an outright error on 5.4.
+
 ## 1.7.2
 
 - **The Gold box walks its POKéMON at the cart's own speed.** The clock handed

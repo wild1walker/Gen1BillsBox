@@ -1,0 +1,74 @@
+name: Tests
+
+# Every suite in tests/, under BOTH interpreters.
+#
+# The game runs LuaJIT (Lua 5.1); the bundles' own benches happen to have 5.4.
+# That difference has cost this suite of mods real bugs -- `unpack` is a global
+# on LuaJIT and `table.unpack` is not, and 5.4 is the other way round -- so a
+# suite that passes under one and not the other is a suite that has not run.
+#
+# Two shapes of file, and the difference is what they need:
+#
+#   *_test.lua        self-contained: engine modules are stubbed through
+#                     package.loaded, so they run from the mod root with
+#                     nothing installed.  Four of them ALSO look for a
+#                     gen1recomp checkout -- to read the cart's own serializer,
+#                     its CenterPcMenu, or the engine source a design rests on
+#                     -- and skip cleanly when there is none.  There is none
+#                     here, so what those four assert about the engine is
+#                     checked in the bundles' CI and by hand, not by this job.
+#                     Point GEN1RECOMP at a checkout to run them in full --
+#                     under luajit: two of the four (boxfree, goldpcname) load
+#                     engine modules, and the engine needs LuaJIT's `bit`.
+#   tests/gen1billsbox_test.lua
+#                     the SDK harness, which needs an engine tree with this
+#                     mod staged at mods/Gen1BillsBox.  Not run here: the
+#                     engine is a separate repository.  It is run in the
+#                     bundles' CI, where the mod IS staged, and by hand with
+#                     `cp -r . <engine>/mods/Gen1BillsBox` -- running it from
+#                     anywhere else loads the ENGINE's main.lua and fails for
+#                     a reason that has nothing to do with this mod.
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md', 'docs/**', 'mod.card']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Lua
+        run: sudo apt-get update && sudo apt-get install -y lua5.4 luajit
+
+      - name: Syntax-check every file under both interpreters
+        run: |
+          set -e
+          for f in *.lua tests/*.lua; do
+            luajit -bl "$f" >/dev/null || { echo "luajit: $f"; exit 1; }
+            lua5.4 -e "assert(loadfile('$f'))" || { echo "lua5.4: $f"; exit 1; }
+          done
+
+      - name: Run the suites
+        run: |
+          set -e
+          status=0
+          for f in tests/*_test.lua; do
+            case "$f" in
+              # needs an engine tree with this mod staged in it; see above
+              tests/gen1billsbox_test.lua) continue ;;
+            esac
+            for lua in luajit lua5.4; do
+              echo "== $lua $f"
+              out=$("$lua" "$f" 2>&1) || { echo "$out"; echo "FAILED: $lua $f"; status=1; continue; }
+              echo "$out"
+              # a suite that reports failures but exits 0 must not pass
+              echo "$out" | grep -Eq '^[[:space:]]*FAIL|[1-9][0-9]* failed' \
+                && { echo "FAILED: $lua $f"; status=1; }
+            done
+          done
+          exit $status

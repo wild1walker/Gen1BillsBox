@@ -287,6 +287,11 @@ end
 
 -- ------- the header
 
+-- Twelve cartridge boxes plus the GLOBAL pages the shared store shows.  With
+-- nothing sent there is one of those and it is empty, which is what makes it
+-- somewhere to send TO.
+local PAGES = Boxes.COUNT + 1
+
 do
   local game = fakeGame({ mon("FIXMON_A") })
   forgetGrid()
@@ -295,8 +300,17 @@ do
   T.eq(screen.pane, "header", "UP out of the top row lands on the box header")
   drive(game, screen, "right")
   T.eq(game.save.currentBox, 2, "RIGHT on the header is the next box")
+  -- The ring is the cartridge's twelve boxes AND the shared GLOBAL pages
+  -- after them, so LEFT off BOX 1 is the last global page rather than BOX 12.
+  -- An empty GLOBAL 1 is always there -- a box you cannot see an open slot in
+  -- is a box you cannot deposit into -- so with nothing sent yet there is
+  -- exactly one.
   drive(game, screen, "left", "left")
-  T.eq(game.save.currentBox, Boxes.COUNT, "and LEFT wraps round the back")
+  T.eq(game.save.currentBox, 1, "LEFT off BOX 1 leaves the cartridge's boxes")
+  T.eq(screen.globalPage, 1, "for the last shared page")
+  drive(game, screen, "left")
+  T.eq(screen.globalPage, nil, "and LEFT again is back on the cartridge")
+  T.eq(game.save.currentBox, Boxes.COUNT, "wrapping round to BOX 12")
   drive(game, screen, "down")
   T.eq(screen.pane, "box", "DOWN goes back to the pane it came from")
 end
@@ -516,7 +530,9 @@ do
   local list = game.stack:top()
   T.check(list ~= nil and type(list.items) == "table",
     "A on the header opens the box list")
-  T.eq(#list.items, Boxes.COUNT, "with a row per box")
+  T.eq(#list.items, PAGES, "with a row per box, and one for the shared page")
+  T.check(tostring(list.items[PAGES].label):find("GLOBAL", 1, true) ~= nil,
+    "the shared pages listed after the cartridge's own")
   T.check(list.items[1].label:find("1/" .. Boxes.CAPACITY, 1, true) ~= nil,
     "each saying how full it is")
 
@@ -598,7 +614,7 @@ do
   end
 
   local rects, codes, titles = capture(list)
-  T.eq(#list.items, Boxes.COUNT, "the draw leaves the full list behind it")
+  T.eq(#list.items, PAGES, "the draw leaves the full list behind it")
   T.eq(list.title, " CHANGE BOX ", "the title survives the draw too")
 
   -- Menu draws a title at the very top of the border tile, where the glyphs'
@@ -630,10 +646,10 @@ do
     "and inside its top and bottom ones, not drawn over the border")
 
   -- scrolled to the end there is nothing below, so no arrow at all
-  for _ = 1, Boxes.COUNT - 1 do
+  for _ = 1, PAGES - 1 do
     game.press("down") ; list:update() ; game.release()
   end
-  T.eq(list.index, Boxes.COUNT, "at the last box")
+  T.eq(list.index, PAGES, "at the last row")
   local endRects = capture(list)
   local endWidest = 0
   for _, r in ipairs(endRects) do

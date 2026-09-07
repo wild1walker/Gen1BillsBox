@@ -410,6 +410,13 @@ end
 -- CLAIM: their save is not yours to write, so what you write is the note that
 -- says this one has left -- which every cartridge reads, so it leaves the box
 -- everywhere at once.  Either way the caller gets the POKeMON.
+--
+-- The second return is a TICKET, and it is not a status string: it is what
+-- `restore` needs to undo this exact withdrawal.  A box screen picks a
+-- POKeMON up and the player presses B, and the one thing that must not happen
+-- then is the POKeMON reappearing somewhere else in the box with a new id --
+-- so the way back is spelled out here rather than approximated with a second
+-- deposit.
 function GlobalBox.withdraw(bucket, sources, view, page, slot)
   if type(bucket) ~= "table" then return nil, "no_save" end
   local entry = GlobalBox.at(view, page, slot)
@@ -419,14 +426,41 @@ function GlobalBox.withdraw(bucket, sources, view, page, slot)
     for index, mon in ipairs(mons) do
       if type(mon) == "table" and mon.gbId == entry.id then
         table.remove(mons, index)
-        return entry.mon, "removed"
+        return entry.mon, { how = "removed", id = entry.id, mon = mon }
       end
     end
     return nil, "empty_cell"
   end
   bucket.claims = type(bucket.claims) == "table" and bucket.claims or {}
   bucket.claims[entry.id] = true
-  return entry.mon, "claimed"
+  return entry.mon, { how = "claimed", id = entry.id }
+end
+
+-- Put a withdrawal back exactly where it was.
+--
+-- A claim is undone by dropping the claim, which is the whole of it: the
+-- POKeMON never left the save that holds it, and the box has been hiding it
+-- rather than moving it.  A removal is undone by putting the SAME table back
+-- in the outbox with the SAME id and the same sent time, so the view sorts it
+-- into the cell it came out of.  Neither mints an id, which is what keeps a
+-- press of B from being a second deposit.
+function GlobalBox.restore(bucket, ticket)
+  if type(bucket) ~= "table" or type(ticket) ~= "table" then return false end
+  if ticket.how == "claimed" then
+    local claims = type(bucket.claims) == "table" and bucket.claims or {}
+    bucket.claims = claims
+    if ticket.id == nil then return false end
+    claims[ticket.id] = nil
+    return true
+  end
+  if ticket.how ~= "removed" or type(ticket.mon) ~= "table" then return false end
+  local mons = type(bucket.mons) == "table" and bucket.mons or {}
+  bucket.mons = mons
+  for _, mon in ipairs(mons) do
+    if type(mon) == "table" and mon.gbId == ticket.id then return false end
+  end
+  mons[#mons + 1] = ticket.mon
+  return true
 end
 
 -- ------- reconciliation, run once when a save loads

@@ -78,10 +78,19 @@ function Boxes.canUsePc(save)
 end
 package.loaded["src.core.gen2.Boxes"] = Boxes
 
-local Mail = {}
+-- sPartyMail is a FIXED six-slot array keyed by party position, not a list:
+-- removeSlot shifts every letter behind the departing mon up one and clears
+-- the last (src/core/gen2/Mail.lua:135).  A `table.remove` stands in for that
+-- badly -- it is the same shift only while the array happens to be dense, and
+-- it raises outright on 5.4 for a slot past the end, which is how this stub
+-- was found to be wrong.
+local Mail = { PARTY_LENGTH = 6 }
 function Mail.monHoldsMail(mon) return mon and mon.mail == true end
 function Mail.removeSlot(save, slot)
-  if save.mail then table.remove(save.mail, slot) end
+  local mail = save.mail
+  if not (mail and slot and slot >= 1) then return end
+  for i = slot, Mail.PARTY_LENGTH - 1 do mail[i] = mail[i + 1] end
+  mail[Mail.PARTY_LENGTH] = nil
 end
 package.loaded["src.core.gen2.Mail"] = Mail
 
