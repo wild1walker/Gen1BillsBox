@@ -325,8 +325,11 @@ do
   end
 
   screen.pane, screen.boxSlot = "box", 2
-  screen.ticks = 8            -- clock 16: an animating icon is on frame 1
-  screen.icons.clock = screen.ticks * 2
+  -- The screen hands the renderer its tick count UNDOUBLED (see update), so
+  -- the clock is the count.  24 puts an animating icon on frame 1 (>= 16) and
+  -- keeps the flash on its lit half (24 % FLASH_PERIOD = 0, under FLASH_ON).
+  screen.ticks = 24
+  screen.icons.clock = screen.ticks
   local frames = paint()
   eq(#frames, 4, "four POKeMON, four icons")
   for _, entry in ipairs(frames) do
@@ -355,7 +358,7 @@ do
 
   -- The flash is a skipped draw, not a second icon.
   screen.ticks = 20           -- past FLASH_ON, the dark half of the cycle
-  screen.icons.clock = screen.ticks * 2
+  screen.icons.clock = screen.ticks
   frames = paint()
   eq(#frames, 2, "on the dark half of the flash it is simply not drawn")
   local stillThere = false
@@ -442,6 +445,28 @@ do
      "B is gone and NOBODY else moved -- the arrangement lost B's entry, not "
      .. "its last one")
   eq(listOf(save.boxes[1]), "C,D,A", "and the cart's list lost B")
+end
+
+-- ------- the walk runs at the cart's own speed
+--
+-- The clock handed to the borrowed renderer used to be DOUBLED, to match the
+-- Gen 1 box's ANIM_STEPS = 8.  That number came from the wrong screen: Red's
+-- box animates by mirroring one frame, and Gold's icons are a two-pose walk,
+-- so eight steps of Gold's is the walk at double speed -- and this screen
+-- draws a party column, so the same POKeMON walked at one speed here and
+-- another in PARTY MENU.
+do
+  io.write("the box walks its icons at the party list's cadence\n")
+  local src = assert(slurp("gen2screen.lua"))
+  ok(src:find("self.icons.clock = self.ticks end", 1, true) ~= nil,
+     "the renderer's clock is this screen's own tick count")
+  ok(src:find("self.icons.clock = self.ticks * 2", 1, true) == nil,
+     "and nothing doubles it")
+  local ticks = tonumber(src:match("local TICKS%s*=%s*(%d+)"))
+  ok(ticks ~= nil, "the counter's period is readable")
+  eq(ticks % 16, 0,
+     ("%d ticks is a whole number of 16-step flips, so the walk does not "
+      .. "jump when the counter wraps"):format(ticks or 0))
 end
 
 io.write(("boxfree: %d passed, %d failed\n"):format(passed, failed))

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.7.2
+
+- **The Gold box walks its POKéMON at the cart's own speed.** The clock handed
+  to the borrowed icon renderer was *doubled*, to match the Gen 1 box's
+  `ANIM_STEPS = 8`. That number came from the wrong screen: Red's box animates
+  by **mirroring** one frame the way the hardware's OAM did, and eight steps of
+  a mirror reads as a shuffle — but Gold's icons are a two-pose **walk**, so
+  eight steps of that is just the walk at double speed.
+
+  The party list this grid actually sits beside is Gold's, at sixteen steps —
+  and this screen draws a party column of its own, so the same POKéMON was
+  walking at one speed in the box and another in PARTY MENU. It uses the one
+  cadence now. 240 ticks is fifteen whole flips, so the walk still doesn't jump
+  when the counter wraps, and the flash reads `ticks` directly and is unchanged.
+
 ## 1.7.1
 
 - **BILL'S BOX now reaches Gold's PC menu.** Reported as "when I go to the PC,
