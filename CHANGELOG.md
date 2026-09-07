@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.8.1
+
+- **The GLOBAL BOX reads every channel's bucket, not just this build's.**
+  `save.modData` is keyed by mod id, and this feature ships under three of
+  them: the stable bundle, the nightly channel's copy of it, and the
+  standalone mod. Reading only our own meant a player who moved between
+  channels would open the GLOBAL BOX and find it empty, with their POKéMON
+  still sitting in the save under the other name.
+
+  Every bucket in a save is read now. A bucket is recognised by its own shape
+  — format, origin and the two tables — rather than by whose it is, and the
+  origin already in it keeps two channels' entries apart once they are in the
+  same box. Writing is unchanged: the only bucket anybody ever writes is their
+  own. The live save's own bucket stays the one exception, because the copy in
+  memory is ahead of the copy on disk.
+
 ## 1.8.0
 
 - **The GLOBAL BOX.** Past the last of your cartridge's boxes the header keeps

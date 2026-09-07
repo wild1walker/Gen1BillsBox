@@ -429,6 +429,11 @@ do
       [GlobalBox.KEY] = bucket } } })
   end
 
+  local function encodeSaveUnder(id, bucket)
+    return SaveSerializer.encode({ modData = { [id] = {
+      [GlobalBox.KEY] = bucket } } })
+  end
+
   local disk = {
     ["cart:wildgreen/slot1"] = encodeSave(bucketWith("green", 1)),
     ["cart:wildcrystal/slot1"] = encodeSave(bucketWith("crystal", 4)),
@@ -441,7 +446,13 @@ do
   local SaveData = {
     cartsWithSlots = function() return { "wildcrystal", "wildgreen" } end,
     listCartSlots = function(cartId)
-      return { { id = "slot1", exists = disk["cart:" .. cartId .. "/slot1"] ~= nil } }
+      local out = {}
+      for key in pairs(disk) do
+        local slot = key:match("^cart:" .. cartId .. "/(.+)$")
+        if slot then out[#out + 1] = { id = slot, exists = true } end
+      end
+      table.sort(out, function(a, b) return a.id < b.id end)
+      return out
     end,
     readCartSlotSource = function(cartId, slotId)
       return disk[("cart:%s/%s"):format(cartId, slotId)]
@@ -482,6 +493,8 @@ do
 
   eq(#GlobalBox.view(sources), 3, "the box shows one POKeMON from each")
 
+
+
   -- With no live save -- a launcher screen -- there is still a box to look at,
   -- there is just nowhere to deposit into.
   local readOnly = GlobalBox.readAll({
@@ -494,6 +507,42 @@ do
   -- branch for a store that failed to load and should not need one.
   eq(#GlobalBox.readAll({ modId = MOD_ID, SaveData = false }), 0,
     "and no SaveData at all reads as nothing rather than raising")
+
+  -- ---- the same feature under a different mod id
+  --
+  -- save.modData is keyed by mod id, and this ships under three: the stable
+  -- bundle, the nightly channel's copy, and the standalone mod.  A player who
+  -- moved between them would open the box and find it empty, with their
+  -- POKeMON still in the save under the other name -- so every bucket in a
+  -- save is read, recognised by its shape rather than by whose it is.
+  disk["cart:wildgreen/slot2"] =
+    encodeSaveUnder(MOD_ID .. "_nightly", bucketWith("nightly", 10))
+  local mixed = GlobalBox.readAll({
+    SaveData = SaveData, Serializer = SaveSerializer, GameVersion = GameVersion,
+    modId = MOD_ID, liveKey = "cart:wildcrystal/slot1", liveBucket = live,
+  })
+  eq(#GlobalBox.view(mixed), 4,
+    "a bucket the nightly channel wrote is in the same box as the stable one")
+  local origins = {}
+  for _, entry in ipairs(GlobalBox.view(mixed)) do
+    origins[#origins + 1] = entry.origin
+  end
+  table.sort(origins)
+  eq(table.concat(origins, ","), "green,live,nightly,red",
+    "each keeping the origin that says which save it came out of")
+
+  -- but never the live save's OWN bucket off disk: the copy in memory is
+  -- ahead of it, and reading both would show every unsaved deposit twice
+  disk["cart:wildcrystal/slot1"] = encodeSave(bucketWith("stale", 99))
+  local again = GlobalBox.readAll({
+    SaveData = SaveData, Serializer = SaveSerializer, GameVersion = GameVersion,
+    modId = MOD_ID, liveKey = "cart:wildcrystal/slot1", liveBucket = live,
+  })
+  local stale = 0
+  for _, source in ipairs(again) do
+    if source.origin == "stale" then stale = stale + 1 end
+  end
+  eq(stale, 0, "the live save's last write is not read back over its memory")
 end
 
 do

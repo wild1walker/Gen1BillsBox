@@ -315,7 +315,10 @@ So it isn't one list. Every save carries its own **outbox**, inside the save,
 and the GLOBAL pages are all of them laid end to end:
 
 - Your own save's outbox is the only thing you ever write.
-- Every other save on the installation is read, read-only.
+- Every other save on the installation is read, read-only — including saves
+  written by a different channel of this mod. The stable bundle, the nightly
+  and the standalone mod are three names for the same feature, and a box that
+  went empty because you switched channels would not be one box.
 - Taking a POKéMON that came from *another* save writes a **claim** into
   yours. Claims are read by everybody, so it leaves the box on every
   cartridge the moment you take it, and the save still holding it lets go the

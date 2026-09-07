@@ -214,14 +214,40 @@ function GlobalBox.readAll(deps)
     return sources
   end
 
+  -- Every bucket in a save, not just the one this build's mod id wrote.
+  --
+  -- `save.modData` is keyed by MOD ID, and the same feature ships under more
+  -- than one: the stable bundle, the nightly channel's copy of it, and the
+  -- standalone mod are three ids over one installation's saves.  Reading only
+  -- our own would mean a player who moved from the nightly to the stable
+  -- bundle opening the GLOBAL BOX and finding it empty, with their POKeMON
+  -- still sitting in the save under the other name.
+  --
+  -- So every id is read.  A bucket is recognised by its own shape --
+  -- `bucketOf` wants the format, an origin and the two tables -- rather than
+  -- by whose it is, and the origin in it is what keeps two channels' entries
+  -- apart once they are in the same box.  Writing is unchanged: the only
+  -- bucket anybody ever writes is their own, through mod.save.
+  --
+  -- The live save's OWN bucket is the exception, and only that one: the copy
+  -- in memory is ahead of the copy on disk.  Its other buckets are read like
+  -- anyone else's.
   local function take(key, body)
-    if key == liveKey or type(body) ~= "string" or body == "" then return end
+    if type(body) ~= "string" or body == "" then return end
     local okDecode, save = pcall(Serializer.decode, body)
     if not okDecode or type(save) ~= "table" then return end
     local modData = save.modData
-    local bucket = type(modData) == "table" and modData[modId] or nil
-    local source = sourceFrom(key, GlobalBox.bucketOf(bucket), false)
-    if source then sources[#sources + 1] = source end
+    if type(modData) ~= "table" then return end
+    local ids = {}
+    for id in pairs(modData) do ids[#ids + 1] = tostring(id) end
+    table.sort(ids)
+    for _, id in ipairs(ids) do
+      if not (key == liveKey and id == modId) then
+        local bucket = GlobalBox.bucketOf(modData[id])
+        local source = sourceFrom(key, bucket, false)
+        if source then sources[#sources + 1] = source end
+      end
+    end
   end
 
   local function slotsOf(lister, ...)
