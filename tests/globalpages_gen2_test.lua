@@ -617,5 +617,66 @@ do
   eq(screen.boxIndex, 1, "wrapping from BOX 14 to BOX 1")
 end
 
+-- ------------------------- several out of the GLOBAL BOX, which is a QUEUE
+--
+-- The Gen 1 screen's bug, and this file carries the same code: a mark records
+-- a CELL, `Session:take` rebuilds the view after every withdrawal, and the
+-- GLOBAL BOX closes up behind the gap.  So the second take by a recorded cell
+-- takes whatever moved into it and the last runs off the end -- reported as
+-- "that can't be sent", after the wrong POKeMON had already moved.
+--
+-- Gold keeps its boxes as plain arrays, so this is the same assertion with
+-- the other screen's plumbing: the three that arrive are the three marked.
+
+do
+  io.write("three out of the GLOBAL BOX are the three that were marked\n")
+  reset()
+  greenCartHolding({ mon("CHARMANDER", "ONE"), mon("SQUIRTLE", "TWO"),
+                     mon("PIDGEY", "THREE") })
+  local save = newSave(1)
+  local screen = screenOn(save)
+
+  eq(screen.global:count(), 3, "three are in the GLOBAL BOX")
+  screen.pane, screen.globalPage = "box", 1
+  for cell = 1, 3 do screen.boxSlot = cell screen:toggleMark() end
+  eq(#screen.picked, 3, "and all three are marked")
+
+  screen.globalPage, screen.boxIndex = nil, 1
+  prints = {}
+  ok(screen:placeMarks(), "they move into BOX 1")
+  eq(Boxes.count(save, 1), 3, "all three arrive")
+
+  local names = {}
+  for _, each in ipairs(Boxes.box(save, 1)) do
+    names[tostring(each.nickname)] = true
+  end
+  ok(names.ONE and names.TWO and names.THREE,
+    "and they are ONE, TWO and THREE -- not whatever the queue closed up "
+    .. "into their cells")
+  eq(screen.global:count(), 0, "the GLOBAL BOX is empty")
+  eq(#screen.picked, 0, "and the marks are spent")
+end
+
+do
+  io.write("and marking SOME of them leaves the right one behind\n")
+  reset()
+  greenCartHolding({ mon("CHARMANDER", "ONE"), mon("SQUIRTLE", "TWO"),
+                     mon("PIDGEY", "THREE") })
+  local save = newSave(1)
+  local screen = screenOn(save)
+
+  screen.pane, screen.globalPage = "box", 1
+  screen.boxSlot = 1 screen:toggleMark()
+  screen.boxSlot = 2 screen:toggleMark()
+  eq(#screen.picked, 2, "the first two are marked")
+
+  screen.globalPage, screen.boxIndex = nil, 1
+  ok(screen:placeMarks(), "and they move")
+  eq(Boxes.count(save, 1), 2, "two arrive")
+  local left = screen.global:at(1, 1)
+  eq(left and tostring(left.nickname), "THREE",
+    "and the one left in the GLOBAL BOX is THREE -- the one nobody marked")
+end
+
 io.write(("\n%d passed, %d failed\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)

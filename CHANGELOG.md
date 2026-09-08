@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.10.1
+
+- **Moving several POKéMON out of the GLOBAL BOX took the wrong ones, then
+  said "That can't be sent."** A mark records where a POKéMON is. In a
+  cartridge box that is enough — Red and Gold keep their arrangement beside
+  the box, so taking one out leaves every other cell where it was. The GLOBAL
+  BOX is not a box, it is a **queue**: a withdrawal closes it up and every
+  cell after the gap moves down one.
+
+  So the first mark came out correctly, the second took whatever had moved
+  into its cell, and the last ran off the end of what was left — which
+  answered `empty_cell`, which had no sentence of its own and fell through to
+  "That can't be sent". Mark ONE and TWO and you moved ONE and THREE.
+
+  A mark on a global page now records the entry's **id**, and every take
+  resolves that id to where it is *now*. `empty_cell` also has its own line:
+  "It's not in the GLOBAL BOX now." Both box screens.
+
 ## 1.10.0
 
 - **Anything drawn over a POKéMON came back inverted.** Reported with a

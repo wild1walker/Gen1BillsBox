@@ -788,5 +788,98 @@ do
   eq(#(menus[1].items or {}), BOX_COUNT, "with twelve rows in CHANGE BOX")
 end
 
+-- ------------------------- several out of the GLOBAL BOX, which is a QUEUE
+--
+-- Reported as "when trying to move multiple mon from global box it says
+-- 'that can't be sent'", and the message was the smallest part of it.
+--
+-- A mark records where the POKeMON is.  For a cartridge box that is enough:
+-- Red keeps its arrangement beside the box, so a cell is a place and taking
+-- one POKeMON out leaves every other cell where it was.  The GLOBAL BOX is
+-- not a box, it is a QUEUE -- `Session:take` withdraws and rebuilds the view,
+-- and the view closes up, so cell 2 becomes cell 1 and cell 3 becomes cell 2.
+--
+-- Taking three marks in a row by their recorded cells therefore took the
+-- first one, then whatever had MOVED INTO cell 2, then ran off the end of
+-- what was left -- which answers `empty_cell`, which `refusalText` had no
+-- sentence for and fell through to "That can't be sent".
+--
+-- So the wrong POKeMON came out before the message ever appeared, and that is
+-- the half worth asserting: the three that arrive are the three that were
+-- marked, by name.
+
+do
+  io.write("three out of the GLOBAL BOX are the three that were marked\n")
+  reset()
+  otherCartHoldingList({ mon("CHARMANDER", "ONE"), mon("SQUIRTLE", "TWO"),
+                         mon("PIDGEY", "THREE") })
+  local save = newSave(1)
+  local screen = screenOn(save)
+  local boxes = Boxes.ensure(save)
+
+  eq(screen.global:count(), 3, "three are in the GLOBAL BOX")
+  screen.pane, screen.globalPage = "box", 1
+  for cell = 1, 3 do screen.boxSlot = cell screen:toggleMark() end
+  eq(#screen.picked, 3, "and all three are marked")
+
+  screen.globalPage, save.currentBox = nil, 1
+  said = {}
+  ok(screen:placeMarks(), "they move into BOX 1")
+  eq(#said, 0, "with nothing refused")
+  eq(#boxes[1], 3, "all three arrive")
+
+  local names = {}
+  for _, each in ipairs(boxes[1]) do names[tostring(each.nickname)] = true end
+  ok(names.ONE and names.TWO and names.THREE,
+    "and they are ONE, TWO and THREE -- not the same one three times, and "
+    .. "not whatever the queue closed up into their cells")
+  eq(screen.global:count(), 0, "the GLOBAL BOX is empty")
+  eq(#screen.picked, 0, "and the marks are spent")
+end
+
+do
+  io.write("and marking SOME of them leaves the right one behind\n")
+  reset()
+  otherCartHoldingList({ mon("CHARMANDER", "ONE"), mon("SQUIRTLE", "TWO"),
+                         mon("PIDGEY", "THREE") })
+  local save = newSave(1)
+  local screen = screenOn(save)
+  local boxes = Boxes.ensure(save)
+
+  screen.pane, screen.globalPage = "box", 1
+  screen.boxSlot = 1 screen:toggleMark()
+  screen.boxSlot = 2 screen:toggleMark()
+  eq(#screen.picked, 2, "the first two are marked")
+
+  screen.globalPage, save.currentBox = nil, 1
+  said = {}
+  ok(screen:placeMarks(), "and they move")
+  eq(#said, 0, "with nothing refused")
+  eq(#boxes[1], 2, "two arrive")
+
+  local names = {}
+  for _, each in ipairs(boxes[1]) do names[tostring(each.nickname)] = true end
+  ok(names.ONE and names.TWO, "ONE and TWO, the two that were marked")
+  eq(screen.global:count(), 1, "one is left in the GLOBAL BOX")
+  local left = screen.global:at(1, 1)
+  eq(left and tostring(left.nickname), "THREE",
+    "and it is THREE -- the one nobody marked")
+end
+
+-- ----------------------------- and a cell that really is gone says so plainly
+--
+-- The fallback that turned an empty cell into "That can't be sent" is a
+-- sentence about the POKeMON, and the POKeMON was never the problem.
+
+do
+  io.write("an empty cell has a sentence of its own now\n")
+  local text = GlobalBox.refusalText("empty_cell")
+  ok(text ~= GlobalBox.REFUSALS.not_a_mon,
+    "empty_cell no longer falls through to \"That can't be sent\"")
+  for line in tostring(text):gmatch("[^\n\f]+") do
+    ok(#line <= 18, ("%q fits the text box (%d columns)"):format(line, #line))
+  end
+end
+
 io.write(("\n%d passed, %d failed\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
