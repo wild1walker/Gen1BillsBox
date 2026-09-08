@@ -436,7 +436,11 @@ do
 
   local disk = {
     ["cart:wildgreen/slot1"] = encodeSave(bucketWith("green", 1)),
-    ["cart:wildcrystal/slot1"] = encodeSave(bucketWith("crystal", 4)),
+    -- the save being played, as it was at its LAST WRITE.  Its bucket carries
+    -- the same origin as the one in memory, because it IS the same bucket --
+    -- ensureBucket never mints a second origin for a save that has one.  That
+    -- is what makes the origin the thing to skip it by.
+    ["cart:wildcrystal/slot1"] = encodeSave(bucketWith("live", 4)),
     ["game:red/slot1"] = encodeSave(bucketWith("red", 7)),
     -- a slot with no bucket at all, which is every save that has never used
     -- the feature: it must be skipped, not counted as an empty box
@@ -467,6 +471,7 @@ do
   local GameVersion = { VERSIONS = { red = {}, blue = {}, gold = {} } }
 
   local live = bucketWith("live", 25)
+  live.mons[1].gbId = "live#2"   -- a deposit made since the last save
   local sources = GlobalBox.readAll({
     SaveData = SaveData, Serializer = SaveSerializer, GameVersion = GameVersion,
     modId = MOD_ID,
@@ -482,14 +487,14 @@ do
 
   local liveCount = 0
   for _, source in ipairs(sources) do
-    if source.key == "cart:wildcrystal/slot1" then
+    if source.origin == "live" then
       liveCount = liveCount + 1
-      eq(source.origin, "live",
-        "the save being played is read from memory, not from its last write")
-      ok(source.live, "and is flagged as the one that may be written")
+      ok(source.live, "the save being played is flagged as the writable one")
+      eq(source.mons[1].gbId, "live#2",
+        "and is read from MEMORY, not from its last write")
     end
   end
-  eq(liveCount, 1, "and it is read exactly once")
+  eq(liveCount, 1, "exactly once -- its copy on disk is not read over it")
 
   eq(#GlobalBox.view(sources), 3, "the box shows one POKeMON from each")
 
@@ -531,18 +536,63 @@ do
   eq(table.concat(origins, ","), "green,live,nightly,red",
     "each keeping the origin that says which save it came out of")
 
+  -- ---- and under a key nobody here chose
+  --
+  -- THE bug, reported as "I put a POKeMON in the GLOBAL BOX on Wild Green and
+  -- I am not seeing it on Wild Crystal".  Inside the Gen1WildUI bundle each
+  -- vendored mod's `mod.save` is a facade that PREFIXES every key with the
+  -- feature's id (runtime/facade.lua), so what this mod writes as "globalbox"
+  -- is filed as "box.globalbox" -- invisible to the mod itself, which reads
+  -- back through the same proxy, and fatal to this, which reads other saves
+  -- raw.  A whole cartridge's outbox was simply not there.
+  --
+  -- So a bucket is found by its SHAPE and not by its key.  Checked with the
+  -- prefix the bundle actually uses, and with one nobody uses, because the
+  -- point is that the key is not what identifies it.
+  local function encodeSaveAt(key, bucket)
+    return SaveSerializer.encode({ modData = { [MOD_ID] = { [key] = bucket } } })
+  end
+  disk["cart:wildgreen/slot1"] =
+    encodeSaveAt("box." .. GlobalBox.KEY, bucketWith("bundled", 143))
+  disk["cart:wildgreen/slot3"] =
+    encodeSaveAt("whatever_a_later_bundle_calls_it", bucketWith("elsewhere", 6))
+
+  local prefixed = GlobalBox.readAll({
+    SaveData = SaveData, Serializer = SaveSerializer, GameVersion = GameVersion,
+    modId = MOD_ID, liveKey = "cart:wildcrystal/slot1", liveBucket = live,
+  })
+  local found = {}
+  for _, source in ipairs(prefixed) do found[source.origin] = true end
+  ok(found["bundled"],
+    "a bucket the bundle filed under its own prefix is still found")
+  ok(found["elsewhere"], "and one filed under any other key at all")
+
+  -- and a save that has other mod data, none of it a bucket, is not mistaken
+  -- for one: shape means every field, not just a table in the right place
+  disk["cart:wildgreen/slot4"] = SaveSerializer.encode({ modData = {
+    somebody_else = { settings = { volume = 3 }, notes = "hello",
+                      globalbox = { format = GlobalBox.FORMAT } } } })
+  local noise = GlobalBox.readAll({
+    SaveData = SaveData, Serializer = SaveSerializer, GameVersion = GameVersion,
+    modId = MOD_ID, liveKey = "cart:wildcrystal/slot1", liveBucket = live,
+  })
+  for _, source in ipairs(noise) do
+    ok(source.origin ~= nil and source.origin ~= "",
+      "nothing without an origin is read as a bucket")
+  end
+  eq(#noise, #prefixed, "and another mod's save data adds no sources at all")
+
   -- but never the live save's OWN bucket off disk: the copy in memory is
   -- ahead of it, and reading both would show every unsaved deposit twice
-  disk["cart:wildcrystal/slot1"] = encodeSave(bucketWith("stale", 99))
   local again = GlobalBox.readAll({
     SaveData = SaveData, Serializer = SaveSerializer, GameVersion = GameVersion,
     modId = MOD_ID, liveKey = "cart:wildcrystal/slot1", liveBucket = live,
   })
-  local stale = 0
+  local liveSeen = 0
   for _, source in ipairs(again) do
-    if source.origin == "stale" then stale = stale + 1 end
+    if source.origin == "live" then liveSeen = liveSeen + 1 end
   end
-  eq(stale, 0, "the live save's last write is not read back over its memory")
+  eq(liveSeen, 1, "the live save's last write is not read back over its memory")
 end
 
 do

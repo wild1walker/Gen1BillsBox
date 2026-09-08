@@ -248,8 +248,10 @@ local function loadMod(generation)
              TextBox = package.loaded["src.render.TextBox"],
              Font = package.loaded["src.render.Font"],
              Menu = package.loaded["src.ui.Menu"] }
-  mod.save = { get = function(_, key) return modSaveTable[key] end,
-               set = function(_, key, value) modSaveTable[key] = value end }
+  -- prefixed, the way the bundle's facade hands it over (runtime/facade.lua):
+  -- a harness with a bare key is a harness for a path that does not ship
+  mod.save = { get = function(_, key) return modSaveTable["box." .. key] end,
+               set = function(_, key, value) modSaveTable["box." .. key] = value end }
   mod.find = function() return nil end
   mod.theme = function() return nil end
   mod.world = {}
@@ -322,7 +324,7 @@ do
   said[1].opts.choice(true)
   eq(#game.save.party, 1, "YES takes it out of the party")
   local GlobalBox = assert(load(slurp(HERE .. "globalbox.lua")))()
-  local bucket = GlobalBox.bucketOf(modSaveTable)
+  local bucket = GlobalBox.bucketsIn(modSaveTable)[1]
   ok(bucket ~= nil and #bucket.mons == 1, "and puts it in this save's bucket")
   ok(bucket.mons[1] ~= leaving,
     "as a copy, so the box and the party never share a table")
@@ -389,7 +391,7 @@ do
   said[1].opts.choice(true)
   eq(#game.save.party, 2, "sending takes it out of the party")
   local GlobalBox = assert(load(slurp(HERE .. "globalbox.lua")))()
-  local bucket = GlobalBox.bucketOf(modSaveTable)
+  local bucket = GlobalBox.bucketsIn(modSaveTable)[1]
   ok(bucket ~= nil and #bucket.mons == 1, "and into this save's bucket")
   eq(bucket.mons[1].shape, "gen1", "converted into the one shape the box keeps")
   ok(#mailRemoved == 1 and mailRemoved[1] == 1,

@@ -221,9 +221,17 @@ local modSaveTable = {}
 local mod = { id = MOD_ID, path = "modules/Gen1BillsBox", stored = {} }
 mod.options = { define = function() end,
                 get = function(_, key) return mod.stored[key] end }
+-- mod.save, the way the BUNDLE hands it over.
+--
+-- Inside Gen1WildUI each vendored mod gets a facade whose save proxy prefixes
+-- every key with the feature's id (runtime/facade.lua, keyedProxy/joinKey), so
+-- "globalbox" is filed as "box.globalbox".  A harness that skipped the prefix
+-- would be testing a shipping path that does not exist -- and did: the bug
+-- this suite now covers was a cross-cart read looking for the bare key.
+local SAVE_PREFIX = "box."
 mod.save = {
-  get = function(_, key) return modSaveTable[key] end,
-  set = function(_, key, value) modSaveTable[key] = value end,
+  get = function(_, key) return modSaveTable[SAVE_PREFIX .. key] end,
+  set = function(_, key, value) modSaveTable[SAVE_PREFIX .. key] = value end,
 }
 mod.log = {}
 for _, level in ipairs({ "info", "warn", "error", "debug" }) do
@@ -387,7 +395,7 @@ do
   ok(screen.held == nil, "and lands in the party")
   eq(#save.party, 3, "which is one longer")
   eq(screen.global:count(), 0, "the shared box being one shorter")
-  ok(GlobalBox.bucketOf(modSaveTable).claims["green#1"] == true,
+  ok(GlobalBox.bucketsIn(modSaveTable)[1].claims["green#1"] == true,
     "by a claim in Gold's own save -- Wild Green's is not Gold's to write")
 end
 
@@ -410,7 +418,7 @@ do
   eq(converted.toGen1, 1, "converted on the way in")
   ok(mounts >= 1, "which is the direction that mounts the Gen 1 dataset")
 
-  local bucket = GlobalBox.bucketOf(modSaveTable)
+  local bucket = GlobalBox.bucketsIn(modSaveTable)[1]
   eq(#bucket.mons, 1, "the POKeMON is in this save's own bucket")
   eq(bucket.mons[1].shape, "gen1", "in the one shape the box keeps")
   ok(bucket.mons[1].entered,

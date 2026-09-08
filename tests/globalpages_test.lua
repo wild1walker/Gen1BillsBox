@@ -165,9 +165,17 @@ local modSaveTable
 local mod = { id = MOD_ID, path = "modules/Gen1BillsBox", stored = {} }
 mod.options = { define = function() end,
                 get = function(_, key) return mod.stored[key] end }
+-- mod.save, the way the BUNDLE hands it over.
+--
+-- Inside Gen1WildUI each vendored mod gets a facade whose save proxy prefixes
+-- every key with the feature's id (runtime/facade.lua, keyedProxy/joinKey), so
+-- "globalbox" is filed as "box.globalbox".  A harness that skipped the prefix
+-- would be testing a shipping path that does not exist -- and did: the bug
+-- this suite now covers was a cross-cart read looking for the bare key.
+local SAVE_PREFIX = "box."
 mod.save = {
-  get = function(_, key) return modSaveTable[key] end,
-  set = function(_, key, value) modSaveTable[key] = value end,
+  get = function(_, key) return modSaveTable[SAVE_PREFIX .. key] end,
+  set = function(_, key, value) modSaveTable[SAVE_PREFIX .. key] = value end,
 }
 mod.log = {}
 for _, level in ipairs({ "info", "warn", "error", "debug" }) do
@@ -358,7 +366,7 @@ do
 
   -- and it is in the SAVE, which is the whole reason the store is shaped the
   -- way it is: a deposit that is not in save.modData is a deposit sync loses
-  local bucket = GlobalBox.bucketOf(modSaveTable)
+  local bucket = GlobalBox.bucketsIn(modSaveTable)[1]
   ok(bucket ~= nil, "this save grew a bucket")
   eq(#bucket.mons, 1, "with the POKeMON in it")
   ok(bucket.mons[1] ~= leaving,
@@ -382,12 +390,12 @@ do
   ok(screen.held ~= nil, "one of another save's comes out")
   ok(screen.held.global, "flagged as having come from the shared box")
   eq(screen.global:count(), 1, "and the box is one shorter")
-  ok(GlobalBox.bucketOf(modSaveTable).claims["crystal#1"] == true,
+  ok(GlobalBox.bucketsIn(modSaveTable)[1].claims["crystal#1"] == true,
     "by a claim in THIS save, the other one being untouched")
 
   screen:returnHeld()
   eq(idsOnGlobal(screen), before, "B puts it back in the cell it came out of")
-  eq(next(GlobalBox.bucketOf(modSaveTable).claims), nil,
+  eq(next(GlobalBox.bucketsIn(modSaveTable)[1].claims), nil,
     "with the claim dropped rather than left to reconcile")
 
   -- the same, but put down with A on a global page rather than cancelled

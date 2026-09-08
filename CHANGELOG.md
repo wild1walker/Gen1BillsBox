@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.8.2
+
+- **A POKéMON sent from Wild Green is in Wild Crystal's GLOBAL BOX.** Reported
+  as exactly that, and it was not: the other cartridge's outbox was invisible,
+  so the box read empty on every save but the one you were in.
+
+  `mod.save:set("globalbox", …)` does not write at `globalbox`. Inside the
+  Gen1WildUI bundle every vendored mod's save is a facade that **prefixes each
+  key with the feature's id** (`runtime/facade.lua`, `keyedProxy`/`joinKey`),
+  so what this mod writes as `globalbox` is filed as `box.globalbox`. That is
+  invisible to the mod itself — it reads back through the same proxy that
+  wrote it — and fatal to the GLOBAL BOX, which reads *other* saves raw off
+  disk and was looking for the bare key. The standalone mod, with no facade in
+  front of it, writes the bare key, so the two could not see each other
+  either.
+
+  A bucket is found by its **shape** now, not by its key: every mod id in a
+  save, and every key under each of them, with the format, the origin and the
+  two tables as what says "this is a box". That holds for the prefix the
+  bundle uses today, for a different one tomorrow, and for the standalone
+  mod's bare key, without any of them being named in the store.
+
+  The live save's own bucket is still the one thing skipped, and it is skipped
+  by its **origin** rather than by which slot it came from — so a bucket the
+  live save carries from a *different* channel is read like anyone else's.
+
+- **The suite drives the engine's real `SaveData` now, not a stand-in for it**
+  (`tests/globalcarts_test.lua`). Every existing test of the cross-cart read
+  went through a SaveData double, and a double answers what it was written to
+  answer — so all of them agreed with the code and none of them agreed with
+  the game. The new one builds a two-cartridge installation over a memory
+  filesystem through the engine's own slot registry, writes Wild Green's save
+  with its box where the *bundle* files it, and asks Wild Crystal what is in
+  the box. Against the old code it fails with the reported symptom.
+
+  The three harnesses that stub `mod.save` now prefix keys the way the bundle
+  does, for the same reason.
+
 ## 1.8.1
 
 - **The GLOBAL BOX reads every channel's bucket, not just this build's.**
