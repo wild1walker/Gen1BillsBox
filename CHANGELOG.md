@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.11.1
+
+- **The Gen 2 page suite's MAIL stub, made faithful.** No shipped behaviour
+  changes; 1.11.0's code is untouched. The stub modelled `sPartyMail` as a
+  list and `table.remove`d from it, where the cart shifts within a fixed
+  six-slot array — the same wrong model `billsbox2_test.lua` was corrected for
+  earlier. It is a no-op on LuaJIT and raises outright on Lua 5.4, so it
+  turned a correct party SEND into a crash on one interpreter only. Its
+  `removeSlot` also wrote to `save.mail` while its `state` read
+  `save.mailState`, so a remove and an insert touched different tables and no
+  test built on it could have caught either being wrong. Both halves now
+  mirror `src/core/gen2/Mail.lua`.
+
 ## 1.11.0
 
 - **SEND is on the party half of the box screen.** Selecting a party member

@@ -69,13 +69,34 @@ end
 function Boxes.canUsePc(save) return true end
 package.loaded["src.core.gen2.Boxes"] = Boxes
 
+-- src/core/gen2/Mail.lua, shape for shape, because a stub that is nearly it is
+-- worse than no stub at all.  Two things this got wrong and CI found:
+--
+--   * sPartyMail is a FIXED six-slot array keyed by party position, not a
+--     list.  `removeSlot` SHIFTS every letter behind the departing POKeMON up
+--     one and clears the last; `table.remove` is the same shift only while the
+--     array happens to be dense -- and on Lua 5.4 it RAISES for a slot past
+--     the end, which is a crash on one interpreter and silence on the other.
+--   * the letters live at `save.mail`, as { party, box }.  A stub whose
+--     `removeSlot` wrote to `save.mail` while its `state` read `save.mailState`
+--     had a remove and an insert touching two different tables, so no test
+--     built on it could ever have caught one of them being wrong.
 local Mail = { PARTY_LENGTH = 6 }
 function Mail.monHoldsMail(mon) return mon and mon.mail == true end
-function Mail.removeSlot(save, slot)
-  if save.mail then table.remove(save.mail, slot) end
+function Mail.state(save)
+  if type(save) ~= "table" then return { party = {}, box = {} } end
+  local state = save.mail
+  if type(state) ~= "table" then state = {} save.mail = state end
+  state.party = state.party or {}
+  state.box = state.box or {}
+  return state
 end
-function Mail.state(save) save.mailState = save.mailState or { party = {} }
-  return save.mailState end
+function Mail.removeSlot(save, slot)
+  local party = Mail.state(save).party
+  if not (slot and slot >= 1) then return end
+  for i = slot, Mail.PARTY_LENGTH - 1 do party[i] = party[i + 1] end
+  party[Mail.PARTY_LENGTH] = nil
+end
 package.loaded["src.core.gen2.Mail"] = Mail
 
 package.loaded["src.ui.gen2.PartyMenu"] = {
@@ -738,7 +759,8 @@ do
   save.party[1] = mon("BULBASAUR", "FIRST")
   save.party[2] = mon("CHARMANDER", "GOING")
   save.party[3] = mon("SQUIRTLE", "THIRD")
-  save.mail = { "to FIRST", "-", "to THIRD" }
+  local letters = Mail.state(save).party
+  letters[1], letters[3] = "to FIRST", "to THIRD"
   local screen = screenOn(save)
   screen.pane, screen.partySlot = "party", 2
 
@@ -750,10 +772,11 @@ do
 
   eq(#save.party, 2, "two are left in the party")
   eq(save.party[2].nickname, "THIRD", "and THIRD has moved up to slot 2")
-  eq(#save.mail, 2, "so has its letter")
-  eq(save.mail[2], "to THIRD",
-    "THIRD's mail is in slot 2 with it, not still in slot 3 behind a POKeMON "
-    .. "that left")
+  eq(letters[2], "to THIRD",
+    "THIRD's mail moved up to slot 2 with it, rather than staying in slot 3 "
+    .. "behind a POKeMON that has left")
+  eq(letters[1], "to FIRST", "FIRST's letter did not move")
+  eq(letters[3], nil, "and slot 3 is empty")
 end
 
 do
