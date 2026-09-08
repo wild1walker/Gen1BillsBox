@@ -381,10 +381,15 @@ do
 
   eq(labels(rowsFor(game, game.save.party[1])), "STATS,SWITCH,SEND",
     "a POKeMON RED knows carries the row")
-  eq(labels(rowsFor(game, game.save.party[2])), "STATS,SWITCH",
-    "a Johto POKeMON does not, because it could only refuse")
+  -- A Johto POKeMON carries it too now: the box holds Gold's shape, so there
+  -- is nothing to refuse on the way IN.  It is RED that will not take it out.
+  eq(labels(rowsFor(game, game.save.party[2])), "STATS,SWITCH,SEND",
+    "and so does a Johto POKeMON, which the box holds perfectly well")
+  -- MAIL is the one thing still refused at the deposit, and it is the CART's
+  -- rule rather than the Time Capsule's: sPartyMail is keyed by party slot, so
+  -- Gold will not put a POKeMON holding a letter into storage at all.
   eq(labels(rowsFor(game, game.save.party[3])), "STATS,SWITCH",
-    "nor does one holding MAIL")
+    "one holding MAIL does not, which is Gold's own storage rule")
 
   said = {}
   rowNamed(rowsFor(game, game.save.party[1]), "SEND").onSelect()
@@ -393,7 +398,8 @@ do
   local GlobalBox = assert(load(slurp(HERE .. "globalbox.lua")))()
   local bucket = GlobalBox.bucketsIn(modSaveTable)[1]
   ok(bucket ~= nil and #bucket.mons == 1, "and into this save's bucket")
-  eq(bucket.mons[1].shape, "gen1", "converted into the one shape the box keeps")
+  eq(bucket.mons[1].shape, nil, "with nothing converted on the way in")
+  eq(GlobalBox.genOf(bucket.mons[1]), 2, "stamped as the Gold shape it is")
   ok(#mailRemoved == 1 and mailRemoved[1] == 1,
     "with the letters behind it moved up, which are indexed by party slot")
 end

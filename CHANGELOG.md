@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.9.0
+
+- **The GLOBAL BOX keeps each POKéMON in its own generation's shape.** It kept
+  one shape, Gen 1's, and that was the wrong trade three ways over.
+
+  A Gen 2 game had to convert on the way *in*, which needs Gen 1's base stats,
+  moves and growth rates — so it mounted a whole Gen 1 dataset behind a
+  keypress, was unusable for anyone with no Gen 1 game imported, and reported
+  every way that could fail as the same *"RED, BLUE or YELLOW must be
+  imported"*, including the ways that had nothing to do with an import. And a
+  player whose games are all Gen 2 could never put a Johto POKéMON in it,
+  which is most of what such a player has.
+
+  Now a **deposit converts nothing**, from either game. A withdrawal converts
+  only when the POKéMON is crossing generations — and Convert reaches for the
+  far generation's dataset only to recompute what a stored POKéMON is missing
+  (`src/online/Convert.lua:126`, `:262`), which a stored POKéMON never is. So
+  both conversions run on the live game's own dataset and **this mod never
+  mounts anything.**
+
+  What moves is *when* a POKéMON is refused. "RED never heard of that move" is
+  a fact about handing it to RED, not about storing it, so the Time Capsule's
+  refusals are asked at the withdrawal into a Gen 1 game and nowhere else. A
+  Johto POKéMON goes in happily from Gold and simply will not come out on Red
+  — where it is drawn as a **?**, because Red has no icon for it, and where
+  START offers it no STATS row, because the summary screen draws from a
+  species record Red does not have.
+
+  The one thing a deposit still refuses is a POKéMON holding MAIL, and that is
+  Gold's own storage rule rather than the Time Capsule's.
+
+  **Boxes written by the old build are read, not discarded** — everything in
+  one is a Gen 1 shape by construction, so saying so is the whole migration.
+  Your own box is stamped up in place the next time the save writes, with the
+  ids and the origin untouched so claims against it still land. Another
+  cartridge still running the old build keeps its own format and is read
+  exactly as before.
+
+- **A refusal ran off the right edge of Gold's message box.** Reported with a
+  screenshot reading "YELLOW must be importe" and no way to see the rest. `\f`
+  is the engine's page break and every refusal here is written with it; Red's
+  arm gets that for free because it prints through the engine's own TextBox,
+  but this screen draws its own box and did not — so it printed the first line
+  and then everything else, page breaks and all, straight off the screen. A
+  and B turn the page now, and turn past the last one to dismiss it.
+
 ## 1.8.3
 
 - **The GLOBAL BOX is a feature of this mod, not of any particular game.** It

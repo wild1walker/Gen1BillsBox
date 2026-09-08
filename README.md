@@ -337,24 +337,32 @@ And if you delete the save you withdrew *into* before the sender next boots,
 the POKéMON reappears in the sender's outbox: the failure mode is one coming
 back, never one going missing.
 
-### Only what RED could hold
+### Both generations, each in its own shape
 
-The box keeps one shape, Gen 1's, and the rules are the **Time Capsule's** —
-the engine's own, not new ones invented here. A Johto POKéMON, one holding
-MAIL, an EGG, or one that knows a move RED never heard of is refused, with the
-reason. On Gold the conversion runs on the way in and on the way out; on Red
-there is nothing to convert.
+The box keeps every POKéMON in the shape the game that sent it had it in, and
+records which. So **a deposit converts nothing**, from either game — a Johto
+POKéMON goes into the box from Gold exactly as it is, and comes back out on
+Gold exactly as it was.
 
-Sending **from** a Gen 2 game also needs a Gen 1 game imported — RED, BLUE or
-YELLOW, any one of them — because computing a Gen 1 POKéMON needs Gen 1's base
-stats. Withdrawing *into* a Gen 2 game needs nothing of the sort, so a box you
-only ever take out of on Gold works with no Gen 1 import at all.
+What a game will take back **out** is a different question, and the rules there
+are the **Time Capsule's** — the engine's own, reused rather than restated. A
+Johto species, a Gen 2 move, a held MAIL or an EGG cannot come out on a Gen 1
+game, and is refused there with the reason. It sits in the box perfectly well
+in the meantime; a Gen 1 game draws it as a **?**, because it has no icon for
+a POKéMON it has never heard of.
 
-**The known limit:** because the box keeps Gen 1's shape, a player whose games
-are *all* Gen 2 cannot put a Johto POKéMON in it. That is the cost of one
-shape both generations can open, and it is the thing to change if it gets in
-your way — say so and the box can keep each POKéMON in its own generation's
-shape instead, converting only when one actually crosses.
+That is one rule asked in one place, and it is the right place: *"RED never
+heard of that move"* is a fact about handing a POKéMON to RED, not about
+storing it.
+
+Neither direction loads anything. Convert reaches for the far generation's
+dataset only to recompute what a stored POKéMON is missing, and a stored
+POKéMON is missing nothing — so both conversions run on the live game's own
+data, and **no Gen 1 import is needed to use the box from a Gen 2 game.**
+
+The one thing a deposit still refuses is a POKéMON **holding MAIL**, and that
+is Gold's own storage rule rather than the Time Capsule's: `sPartyMail` is
+keyed by party slot, so the cart will not put a letter-carrier in a box at all.
 
 ### What a shared page will not do
 

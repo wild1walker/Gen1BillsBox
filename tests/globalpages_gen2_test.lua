@@ -3,9 +3,11 @@
 --
 -- The Gen 1 half of this is globalpages_test.lua and the store underneath both
 -- is globalbox_test.lua.  What is only true HERE is the crossing: the box keeps
--- ONE shape, Gen 1's, so Gold converts on the way in and on the way out -- and
--- the two directions do not cost the same, which is the whole reason this
--- feature is usable in game at all.
+-- each POKeMON in its OWN generation's shape, so Gold converts NOTHING on the
+-- way in and converts on the way out only for a POKeMON that Red put there.
+-- Which is what makes the feature usable in game at all -- the version that
+-- kept one shape had to mount a whole Gen 1 dataset behind a keypress, and
+-- could not hold a Johto POKeMON for a player who has only Gen 2 games.
 --
 -- Run:  luajit tests/globalpages_gen2_test.lua
 
@@ -415,12 +417,12 @@ do
   screen:place()
   ok(screen.held == nil, "and put down on GLOBAL 1")
   eq(screen.boxSlot, 1, "in the first free cell, the cursor following it")
-  eq(converted.toGen1, 1, "converted on the way in")
-  ok(mounts >= 1, "which is the direction that mounts the Gen 1 dataset")
+  eq(converted.toGen1, 0, "with nothing converted on the way in")
+  eq(mounts, 0, "and no dataset mounted -- there is nothing to mount one for")
 
   local bucket = GlobalBox.bucketsIn(modSaveTable)[1]
   eq(#bucket.mons, 1, "the POKeMON is in this save's own bucket")
-  eq(bucket.mons[1].shape, "gen1", "in the one shape the box keeps")
+  eq(GlobalBox.genOf(bucket.mons[1]), 2, "in Gold's own shape, stamped as such")
   ok(bucket.mons[1].entered,
     "with the cart's into-storage tail run on it before it was copied")
   eq(#save.party, 2, "and out of the party")
@@ -432,21 +434,20 @@ do
   -- cursor moving there is what says so
   -- The row the first one left stays empty for as long as the screen is open,
   -- so the second is picked up out of row 2.
-  local before = mounts
   screen.pane, screen.partySlot = "party", 2
   screen:grab()
   ok(screen.held ~= nil, "a second POKeMON comes out of the party")
   screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 1
   screen:place()
   eq(screen.boxSlot, 2, "and lands in the cell after the first, not on top of it")
-  eq(mounts, before, "re-using the dataset rather than mounting it again")
   eq(screen.global:count(), 2, "with both of them in the box")
+  eq(mounts, 0, "and still nothing mounted")
 end
 
 -- ------------------------------------------------------------ the refusals
 
 do
-  io.write("only what RED could hold gets in\n")
+  io.write("Gold puts GOLD's POKeMON in, Johto ones included\n")
   reset()
   local save = newSave(3)
   save.party[1] = mon("CHIKORITA", "JOHTO")
@@ -454,27 +455,41 @@ do
   save.party[3] = mon("BULBASAUR", "NEW", { moves = { { id = "CRUNCH" } } })
   local screen = screenOn(save)
 
+  -- The box holds Gold's shape, so there is nothing for the deposit to refuse
+  -- for being too new.  A player whose games are ALL Gen 2 could not put a
+  -- Johto POKeMON in at all while the box kept one shape, which was most of
+  -- what such a player has.
   local reasons = {}
   for row = 1, 3 do
     reasons[#reasons + 1] = tostring(Pane.wouldRefuse(screen.game, save.party[row]))
   end
-  eq(table.concat(reasons, ","), "species_too_new,has_mail,move_too_new",
-    "a Johto POKeMON, one holding MAIL and one knowing a new move are each "
-    .. "refused for their own reason")
-  for _, reason in ipairs(reasons) do
-    ok(GlobalBox.refusalText(reason) ~= GlobalBox.REFUSALS.not_a_mon,
-      reason .. " has a line of its own to print")
-  end
+  eq(table.concat(reasons, ","), "nil,has_mail,nil",
+    "a Johto POKeMON and one knowing a Gen 2 move both go in; only MAIL does "
+    .. "not, and that is Gold's own storage rule")
+  ok(GlobalBox.refusalText("has_mail") ~= GlobalBox.REFUSALS.not_a_mon,
+    "has_mail has a line of its own to print")
 
-  -- and the refusal happens with the POKeMON still in the party
   screen.pane, screen.partySlot = "party", 1
   screen:grab()
   screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 1
   screen:place()
-  ok(screen.held ~= nil, "a refused POKeMON stays in hand")
-  eq(screen.global:count(), 0, "and nothing reaches the box")
-  ok(screen.message ~= nil and screen.message:find("RED"),
-    "with RED's name on the refusal, because these are RED's rules")
+  ok(screen.held == nil, "the Johto POKeMON goes in")
+  eq(screen.global:count(), 1, "and is in the box")
+  eq(screen.global:at(1, 1).species, "CHIKORITA", "as itself")
+  eq(GlobalBox.genOf(screen.global:at(1, 1)), 2, "in Gold's shape")
+  eq(converted.toGen1, 0, "with Convert never called")
+
+  -- and it comes back OUT on Gold unchanged, because it never left Gold's
+  -- shape: a POKeMON sent to yourself is not a POKeMON put through a trade
+  screen.boxSlot = 1
+  screen:grab()
+  ok(screen.held ~= nil, "it comes back out")
+  eq(screen.held.mon.species, "CHIKORITA", "still a CHIKORITA")
+  eq(converted.toGen2, 0, "and with no conversion on the way out either")
+
+  -- what RED will not take is asked when RED takes it, not here
+  eq(Pane.refusalForTaking(screen.game, { species = "CHIKORITA", gbGen = 2 }),
+     nil, "and Gold has no reason to refuse its own")
 end
 
 -- ------------------------------------------------------- what it will not do

@@ -158,6 +158,43 @@ do
 end
 
 do
+  io.write("a box written before both shapes existed still opens\n")
+
+  -- Format 1 kept everything in Gen 1's shape, so saying so IS the migration.
+  -- The ids do not change, which matters: a claim another save is holding
+  -- against one of these still names it.
+  local save = newSave()
+  local modSave = save.modData[MOD_ID]
+  modSave[GlobalBox.KEY] = {
+    format = 1, origin = "old", seq = 2, claims = { ["other#1"] = true },
+    mons = { mon(1, "FIRST"), mon(4, "SECOND") },
+  }
+  modSave[GlobalBox.KEY].mons[1].gbId = "old#1"
+  modSave[GlobalBox.KEY].mons[2].gbId = "old#2"
+
+  local read = GlobalBox.bucketOf(modSave)
+  ok(read ~= nil, "a format 1 bucket is still a bucket")
+  eq(GlobalBox.genOf(read.mons[1]), 1,
+    "and everything in it is a Gen 1 shape, because that is all it could be")
+
+  local bucket = GlobalBox.ensureBucket(modSave)
+  eq(bucket.format, GlobalBox.FORMAT, "opening it stamps it up to the format")
+  eq(GlobalBox.genOf(bucket.mons[2]), 1, "with each POKeMON's shape recorded")
+  eq(bucket.mons[1].gbId, "old#1", "the ids untouched")
+  eq(bucket.origin, "old", "and the origin, so claims against it still land")
+  eq(next(bucket.claims), "other#1", "claims it was holding are still held")
+
+  -- another save's is read the same way and NEVER written: a format 1 bucket
+  -- on a cartridge running an older build has to stay one
+  local theirs = { format = 1, origin = "theirs", seq = 1, claims = {},
+                   mons = { mon(7, "THEIRS") } }
+  theirs.mons[1].gbId = "theirs#1"
+  local source = GlobalBox.sourceFrom("cart:other/slot1", theirs, false)
+  ok(source ~= nil, "it reads as a source")
+  eq(theirs.format, 1, "and is left at the format its own build wrote")
+end
+
+do
   io.write("a bucket from a newer build is left alone, never rewritten\n")
 
   local modSave = { [GlobalBox.KEY] = { format = GlobalBox.FORMAT + 1,
@@ -388,20 +425,26 @@ do
 end
 
 do
-  io.write("only a Gen 1 POKeMON, and only a POKeMON\n")
+  io.write("the store holds both generations, and refuses almost nothing\n")
 
   local bucket = bucketIn(newSave())
   local _, notMon = GlobalBox.deposit(bucket, {}, { name = "NOTHING" })
   eq(notMon, "not_a_mon", "a table with no species is refused")
-  local _, egg = GlobalBox.deposit(bucket, {}, { species = 1, isEgg = true })
-  eq(egg, "is_egg", "and an EGG, which no Gen 1 cartridge can hold")
-  eq(#bucket.mons, 0, "neither reached the save")
+  eq(#bucket.mons, 0, "and does not reach the save")
 
-  -- The Johto and Gen 2 move refusals are Convert's, asked before this store
-  -- ever sees the POKeMON -- so what is checked here is that the store can
-  -- SAY them in the cartridge's own voice.
+  -- An EGG used to be refused, because everything had to be a Gen 1 shape and
+  -- Gen 1 has no eggs.  A Gen 2 box holds one perfectly well, and an egg that
+  -- will not come out on Red is a WITHDRAWAL Red refuses -- not a deposit
+  -- anybody should have been stopped from making.
+  local egg = GlobalBox.deposit(bucket, {}, { species = 1, isEgg = true }, 2)
+  ok(egg ~= nil, "an EGG goes in from a Gen 2 game")
+  eq(GlobalBox.genOf(bucket.mons[1]), 2, "stamped as the Gen 2 shape it is")
+
+  -- The Johto and Gen 2 move refusals are Convert's, asked when a Gen 1 game
+  -- takes one OUT -- so what is checked here is that the store can SAY them in
+  -- the cartridge's own voice.
   for _, reason in ipairs({ "species_too_new", "move_too_new", "has_mail",
-                            "no_gen1_data", "no_save" }) do
+                            "is_egg", "no_save" }) do
     ok(type(GlobalBox.REFUSALS[reason]) == "string",
       reason .. " has a line to print")
   end

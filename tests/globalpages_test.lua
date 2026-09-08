@@ -96,6 +96,28 @@ package.loaded["src.core.Strings"] = setmetatable({
   return s
 end })
 package.loaded["src.core.Sound"] = { playCry = function() end }
+
+-- Convert, standing in for src/online/Convert.lua on the one path Red uses it:
+-- taking out a POKeMON that GOLD put in.  Faithful about its shape -- a fresh
+-- table out, a reason string on a refusal -- because that is the contract.
+local converted = { toGen1 = 0 }
+package.loaded["src.online.Convert"] = {
+  toGen1 = function(mon, _, gen1Data)
+    if mon.isEgg then return nil, "is_egg" end
+    if not (gen1Data and gen1Data.pokemon and gen1Data.pokemon[mon.species]) then
+      return nil, "species_too_new"
+    end
+    for _, mv in ipairs(mon.moves or {}) do
+      if not (gen1Data.moves and gen1Data.moves[mv.id]) then
+        return nil, "move_too_new"
+      end
+    end
+    converted.toGen1 = converted.toGen1 + 1
+    return { species = mon.species, nickname = mon.nickname, level = mon.level,
+             shape = "gen1" }
+  end,
+  toGen2 = function(mon) return { species = mon.species, shape = "gen2" } end,
+}
 package.loaded["src.core.GameVersion"] = {
   VERSIONS = { red = {}, gold = {} },
   get = function() return "red" end,
@@ -205,10 +227,12 @@ ok(type(Screen) == "table" and type(Screen.new) == "function",
 -- ---- saves and POKeMON
 
 local nextId = 0
-local function mon(species, nickname)
+local function mon(species, nickname, gen, moves)
   nextId = nextId + 1
   return { id = nextId, species = species or "BULBASAUR", level = 5,
-           hp = 20, maxHp = 20, nickname = nickname, moves = {}, dvs = {} }
+           hp = 20, maxHp = 20, nickname = nickname,
+           moves = moves or { { id = "TACKLE" } }, dvs = {},
+           gbGen = gen }
 end
 
 local function newSave(partyN)
@@ -227,6 +251,7 @@ local function otherCartHoldingList(list)
     bucket.seq = bucket.seq + 1
     each.gbId = "crystal#" .. bucket.seq
     each.gbSent = bucket.seq
+    each.gbGen = each.gbGen or 1
     bucket.mons[#bucket.mons + 1] = each
   end
   disk["cart:wildcrystal/slot1"] = SaveSerializer.encode({
@@ -258,8 +283,15 @@ do
 end
 
 local function screenOn(save)
+  -- a dataset with the species this suite uses in it: a POKeMON the game has
+  -- no entry for is drawn as a question mark and offered no STATS row, which
+  -- is a GLOBAL-page case of its own and not what most of these check
   local game = {
-    save = save, data = { pokemon = {}, text = {} },
+    save = save,
+    data = { text = {}, moves = { TACKLE = {} }, pokemon = {
+      BULBASAUR = {}, CHARMANDER = {}, SQUIRTLE = {}, PIDGEY = {},
+      RATTATA = {}, PIKACHU = {},
+    } },
     input = { wasPressed = function() return false end,
               isDown = function() return false end },
     stack = { push = function() end, pop = function() end,
@@ -496,6 +528,69 @@ do
   eq(#save.party, 1, "the party still short of it while it is held")
   screen:returnHeld()
   eq(#save.party, 2, "until B puts it back")
+end
+
+do
+  io.write("what GOLD sent is on the page, and RED says why it can't have it\n")
+  reset()
+  -- Three POKeMON GOLD put there: one RED knows, one Johto, one that knows a
+  -- move RED never heard of.  All three are IN the box -- the box holds Gold's
+  -- shape -- and RED's answer is about taking them OUT.
+  otherCartHoldingList({
+    mon("BULBASAUR", "FINE", 2),
+    mon("CHIKORITA", "JOHTO", 2),
+    mon("BULBASAUR", "NEWMOVE", 2, { { id = "CRUNCH" } }),
+  })
+  local screen = screenOn(newSave(1))
+  screen.pane, screen.globalPage = "box", 1
+  eq(screen.global:count(), 3, "all three are in the box, whatever RED thinks")
+
+  -- the one it knows comes out, converted
+  screen.boxSlot = 1
+  screen:grab()
+  ok(screen.held ~= nil and screen.held.mon.shape == "gen1",
+    "the one RED knows comes out in RED's shape")
+  eq(converted.toGen1, 1, "converted on the way out, which is where it belongs")
+  screen:returnHeld()
+
+  -- the Johto one does not, and says why
+  screen.boxSlot = 2
+  said = {}
+  screen:grab()
+  ok(screen.held == nil, "a Johto POKeMON stays in the box")
+  ok(#said == 1 and said[1].text:find("RED"),
+    "with RED's name on the refusal, because it is RED's rule")
+  eq(screen.global:count(), 3, "and the box is untouched")
+
+  -- so does the one with a move RED never heard of, for its own reason
+  screen.boxSlot = 3
+  said = {}
+  screen:grab()
+  ok(screen.held == nil, "nor does one knowing a move RED never heard of")
+  ok(#said == 1 and said[1].text:find("move"), "which says so in its own words")
+
+  -- and it is DRAWN rather than left as an empty-looking cell that refuses
+  ok(screen:monDrawnAt("box", 2) ~= nil,
+    "a POKeMON RED has no entry for is still in the cell")
+  drawn = {}
+  screen:drawGrid()
+  local question = false
+  for _, entry in ipairs(drawn) do
+    if entry.text == "?" then question = true end
+  end
+  ok(question, "drawn as a question mark, because RED has no icon for it")
+
+  -- and START over it offers no STATS: the summary draws from a species
+  -- record, and there isn't one
+  screen.boxSlot = 2
+  menus = {}
+  screen:openActions()
+  local labels = {}
+  for _, item in ipairs(menus[1] and menus[1].items or {}) do
+    labels[#labels + 1] = tostring(item.label)
+  end
+  eq(table.concat(labels, ","), "CANCEL",
+    "and no STATS row for a POKeMON this game has no entry for")
 end
 
 -- ------------------------------------------------------- the CHANGE BOX list
