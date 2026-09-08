@@ -296,13 +296,18 @@ there.
 
 ## The GLOBAL BOX
 
-Past the last of your cartridge's boxes the header keeps going: **GLOBAL 1**,
-and one more page every time the last one fills. It is one box, shared by
-every save on your installation — deposit a POKéMON on Wild Green, withdraw it
-on Wild Crystal.
+Past the last of your boxes the header keeps going: **GLOBAL 1**, and one more
+page every time the last one fills. It is one box, shared by **every save on
+your installation** — deposit a POKéMON in one game, withdraw it in another.
 
 There is also a **SEND** row on a POKéMON's own popup in the party menu, on
-both games, which is the one-press way in without opening the PC at all.
+both generations, which is the one-press way in without opening the PC at all.
+
+**This is a feature of this mod, not of any particular game.** Install it on a
+plain RED and a plain GOLD and the box is shared between them, with no
+cartridge anywhere; install it on two cartridges and it is shared between
+those; install it on one of each and it is shared between those too. A save is
+a save. All this needs is that both ends have this mod.
 
 ### It lives inside your saves
 
@@ -315,10 +320,11 @@ So it isn't one list. Every save carries its own **outbox**, inside the save,
 and the GLOBAL pages are all of them laid end to end:
 
 - Your own save's outbox is the only thing you ever write.
-- Every other save on the installation is read, read-only — including saves
-  written by a different channel of this mod. The stable bundle, the nightly
-  and the standalone mod are three names for the same feature, and a box that
-  went empty because you switched channels would not be one box.
+- Every other save on the installation is read, read-only — every cartridge's
+  and every plain playthrough's alike, and including saves written by a
+  different channel of this mod. The stable bundle, the nightly and the
+  standalone mod are three names for the same feature, and a box that went
+  empty because you switched channels would not be one box.
 - Taking a POKéMON that came from *another* save writes a **claim** into
   yours. Claims are read by everybody, so it leaves the box on every
   cartridge the moment you take it, and the save still holding it lets go the
@@ -339,10 +345,21 @@ MAIL, an EGG, or one that knows a move RED never heard of is refused, with the
 reason. On Gold the conversion runs on the way in and on the way out; on Red
 there is nothing to convert.
 
+Sending **from** a Gen 2 game also needs a Gen 1 game imported — RED, BLUE or
+YELLOW, any one of them — because computing a Gen 1 POKéMON needs Gen 1's base
+stats. Withdrawing *into* a Gen 2 game needs nothing of the sort, so a box you
+only ever take out of on Gold works with no Gen 1 import at all.
+
+**The known limit:** because the box keeps Gen 1's shape, a player whose games
+are *all* Gen 2 cannot put a Johto POKéMON in it. That is the cost of one
+shape both generations can open, and it is the thing to change if it gets in
+your way — say so and the box can keep each POKéMON in its own generation's
+shape instead, converting only when one actually crosses.
+
 ### What a shared page will not do
 
-- **No gaps.** The cell another cartridge's POKéMON sits in is not your save's
-  to record, so the pages are always closed up. One you put down lands in the
+- **No gaps.** The cell another save's POKéMON sits in is not your save's to
+  record, so the pages are always closed up. One you put down lands in the
   first free cell and the cursor follows it there.
 - **No swap.** The POKéMON you displaced would have to go back where the
   carried one came from, and that may be a cell in somebody else's save.

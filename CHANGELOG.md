@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.8.3
+
+- **The GLOBAL BOX is a feature of this mod, not of any particular game.** It
+  always was in the code — `readAll` walks the plain-playthrough slot registry
+  (`saves/<version>/`, through `SaveData.listSlots`/`readSlotSource`) as well
+  as the cartridge one (`saves/cart_<id>/`, through
+  `listCartSlots`/`readCartSlotSource`) — but nothing proved it and everything
+  written about it said "cartridge". Install this on a plain RED and a plain
+  GOLD and the box is shared between them with no cartridge anywhere; one of
+  each works too. A save is a save.
+
+  `tests/globalcarts_test.lua` covers that now against the engine's real
+  `SaveData`: three saves — two cartridges and a plain GOLD — one box, and
+  each of the three POKéMON found from the others. Cutting the plain-save walk
+  out of `readAll` fails it, which is the evidence that was missing.
+
+- **"RED is not imported" named the wrong game.** Sending *from* a Gen 2 game
+  needs a Gen 1 dataset, and any of RED, BLUE or YELLOW will do — the mount
+  tries all three. Telling a BLUE player to import RED was telling them to do
+  the one thing they did not need to. The line names all three now.
+
+- **A refusal that ran off the end of the text box.** "That can't be sent." is
+  nineteen columns in an eighteen-column box, so a player read it with the
+  full stop cut off. Every refusal is measured against the box now, page by
+  page and line by line, so the next one cannot get through.
+
 ## 1.8.2
 
 - **A POKéMON sent from Wild Green is in Wild Crystal's GLOBAL BOX.** Reported

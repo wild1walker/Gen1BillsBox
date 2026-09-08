@@ -408,6 +408,22 @@ do
   eq(GlobalBox.refusalText("nonsense"), GlobalBox.REFUSALS.not_a_mon,
     "and an unknown reason falls back rather than printing nil")
 
+  -- Every one of them is printed in the game's own text box, which is
+  -- eighteen columns wide and two lines tall.  A line past that is a line the
+  -- player reads with its end cut off, and it is not the sort of thing anyone
+  -- notices in a diff -- "That can't be sent." was nineteen.
+  for reason, text in pairs(GlobalBox.REFUSALS) do
+    for page in tostring(text):gmatch("[^\f]+") do
+      local lines = 0
+      for line in page:gmatch("[^\n]+") do
+        lines = lines + 1
+        ok(#line <= 18, ("%s fits the text box (%q is %d columns)")
+          :format(reason, line, #line))
+      end
+      ok(lines <= 2, reason .. " is at most two lines to a page")
+    end
+  end
+
   local none, why = GlobalBox.deposit(nil, {}, mon(1))
   ok(none == nil, "with no save there is nowhere to deposit")
   eq(why, "no_save", "which is its own refusal")

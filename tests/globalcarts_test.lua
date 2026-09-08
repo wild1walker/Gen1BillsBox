@@ -203,5 +203,56 @@ local stillTwo = GlobalBox.readAll({ modId = MOD_ID,
 eq(#GlobalBox.view(stillTwo), 2,
   "a save that never used the feature adds nothing and breaks nothing")
 
+-- ---- and none of it needs a cartridge
+--
+-- The GLOBAL BOX is a Gen1BillsBox feature, not a Wild Green one: install this
+-- mod on a plain RED and a plain GOLD and the box is shared between them, with
+-- no cart anywhere.  Saves for a plain game live under a different registry
+-- from a cart's (saves/<version>/ rather than saves/cart_<id>/) and are found
+-- by a different pair of calls -- listSlots/readSlotSource rather than
+-- listCartSlots/readCartSlotSource -- so "it works for carts" is not evidence
+-- that it works at all here.
+--
+-- Written in the STANDALONE mod's shape too: its own mod id, and the bare key,
+-- because with no bundle in front of it there is no facade to prefix one.
+
+SaveData.setCart(nil)
+GameVersion.set("red")
+local redSlot = SaveData.createSlot("red")
+ok(type(redSlot) == "string", "a plain RED registers a save slot of its own")
+SaveData.setActiveSlot("red", redSlot)
+local plainSave = {
+  version = "red",
+  player = { name = "RED", map = "PALLET_TOWN", x = 1, y = 1 },
+  pokedex = { seen = {}, owned = {} }, inventory = {}, playTime = 0,
+  modData = { Gen1BillsBox = { [GlobalBox.KEY] = bucketWith("plainred", "PIKACHU") } },
+}
+ok(SaveData.writeSlot("red", redSlot, plainSave),
+  "and its save is written, with the box under the STANDALONE mod's own key")
+
+GameVersion.set("gold")
+local goldSlot = SaveData.createSlot("gold")
+SaveData.setActiveSlot("gold", goldSlot)
+SaveData.writeSlot("gold", goldSlot, {
+  version = "gold",
+  player = { name = "GOLD", map = "PALLET_TOWN", x = 1, y = 1 },
+  pokedex = { seen = {}, owned = {} }, inventory = {}, playTime = 0,
+  modData = {},
+})
+
+local fromGold = GlobalBox.readAll({
+  liveKey = GlobalBox.liveKey(SaveData, GameVersion) })
+eq(GlobalBox.liveKey(SaveData, GameVersion), "game:gold/" .. goldSlot,
+  "with no cart active the save being played is named by its game and slot")
+local seen = {}
+for _, entry in ipairs(GlobalBox.view(fromGold)) do seen[entry.mon.species] = true end
+ok(seen.PIKACHU, "a plain GOLD sees what a plain RED sent -- no cartridge involved")
+
+-- and the two kinds of installation are ONE box, not two: a cart's saves and a
+-- plain game's are both just saves
+ok(seen.BULBASAUR and seen.TOTODILE,
+  "beside what the cartridges sent, in the same box")
+eq(#GlobalBox.view(fromGold), 3, "three POKeMON, from three different saves")
+
 io.write(("\nglobalcarts: %d passed, %d failed\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
