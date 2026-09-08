@@ -539,6 +539,69 @@ do
   eq(screen.global:count(), 1, "and calling it anyway releases nothing")
 end
 
+do
+  io.write("SELECT marks on Gold too, and A moves the whole mark\n")
+  reset()
+  local save = newSave(1)
+  local screen = screenOn(save)
+  for i, sp in ipairs({ "PIDGEY", "PIDGEY", "PIDGEY" }) do
+    Boxes.box(save, 1)[i] = mon(sp, "M" .. i)
+  end
+  screen.pane, screen.boxIndex, screen.boxSlot = "box", 1, 1
+
+  screen:toggleMark()
+  ok(screen:markedAt(1), "SELECT marks the cell the cursor is on")
+  screen:toggleMark()
+  ok(not screen:markedAt(1), "and marks it again to unmark it")
+
+  for cell = 1, 3 do screen.boxSlot = cell screen:toggleMark() end
+  eq(#screen.picked, 3, "three marked")
+
+  screen.boxIndex = 4
+  eq(#screen.picked, 3, "the marks survive a box change")
+  screen.boxSlot = 1
+  ok(screen:placeMarks(), "A puts all three down here")
+  eq(Boxes.count(save, 1), 0, "BOX 1 is empty")
+  eq(Boxes.count(save, 4), 3, "and BOX 4 has them")
+  eq(#screen.picked, 0, "with the marks cleared")
+
+  -- a full box takes none of them rather than as many as fit
+  for cell = 1, 3 do screen.boxSlot = cell screen:toggleMark() end
+  for i = 1, PER_BOX - 1 do Boxes.box(save, 6)[i] = mon("RATTATA", "F" .. i) end
+  screen.boxIndex = 6
+  screen.message = nil
+  ok(not screen:placeMarks(), "a box with room for one refuses all three")
+  ok(screen.message and screen.message:find("full"), "saying it is full")
+  eq(Boxes.count(save, 4), 3, "and not one of them moved")
+  ok(screen:clearMarks(), "B clears the marks")
+end
+
+do
+  io.write("SEND is on Gold's box popup, and it is the box's own\n")
+  reset()
+  local save = newSave(1)
+  local screen = screenOn(save)
+  local leaving = mon("BULBASAUR", "GOING")
+  Boxes.box(save, 1)[1] = leaving
+  screen.pane, screen.boxIndex, screen.boxSlot = "box", 1, 1
+
+  screen.actions = nil
+  screen:openActions()
+  local labels = {}
+  for _, item in ipairs((screen.actions or {}).items or {}) do
+    labels[#labels + 1] = tostring(item.label)
+  end
+  eq(table.concat(labels, ","), "STATS,SEND,RELEASE,SORT,CANCEL",
+    "the popup carries SEND and the SORT that came off SELECT")
+
+  -- the party menu's SEND empties save.party; a BOXED POKeMON handed to that
+  -- would be deposited AND left where it was
+  screen:sendToGlobal(1)
+  eq(Boxes.count(save, 1), 0, "the POKeMON leaves the cartridge box")
+  eq(screen.global:count(), 1, "and is in the GLOBAL BOX")
+  eq(screen.global:at(1, 1).nickname, "GOING", "as itself, exactly once")
+end
+
 -- ----------------------------------------------------------- and it can be off
 
 do

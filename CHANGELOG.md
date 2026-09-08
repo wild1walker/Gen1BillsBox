@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.10.0
+
+- **Anything drawn over a POKéMON came back inverted.** Reported with a
+  screenshot: the STATS/RELEASE popup with white blocks punched through it, in
+  a grid, exactly the size and position of the cells underneath.
+
+  `markTrueColor` does not copy anything. It says *this rectangle is true
+  colour*, and the renderer re-blits whatever is in it **raw** at composite
+  time — after the whole frame is drawn, popups included. So a menu over the
+  grid was re-blitted raw wherever it overlapped an icon's claim, and a Gen 1
+  menu is black on **white** while DARK inverts the page around it. An icon a
+  menu is covering has no business claiming true colour: nobody can see it. It
+  does not claim one now.
+
+- **SELECT marks, and A moves everything marked.** Mark six in BOX 1, walk to
+  BOX 3, press A. The marks survive a box change; B clears them. A box with
+  room for some but not all of them takes none and says so.
+
+- **SORT moved from SELECT to the popup START opens**, beside the other verbs,
+  which is what freed SELECT. UNDO came with it. The popup opens on an empty
+  cell now too, because SORT is about the box rather than about what the
+  cursor happens to be on.
+
+- **SEND is on the box popup as well as the party menu's.** It was left off on
+  the grounds that carrying a POKéMON onto a GLOBAL page is the same action
+  with the cursor already in your hand — true, and not a reason to make
+  anybody walk there. It is the box's *own* SEND: the party menu's takes a
+  POKéMON out of `save.party`, and handing a boxed one to that would have
+  deposited it in the GLOBAL BOX and left the original exactly where it was.
+
+All four on both cartridges.
+
 ## 1.9.0
 
 - **The GLOBAL BOX keeps each POKéMON in its own generation's shape.** It kept

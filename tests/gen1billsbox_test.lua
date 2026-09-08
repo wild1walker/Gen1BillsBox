@@ -389,7 +389,11 @@ do
   local menu = game.stack:top()
   T.check(menu ~= nil and type(menu.items) == "table",
     "START over a box POKeMON opens a menu")
-  T.eq(labels(menu.items), "STATS|RELEASE|CANCEL", "with STATS, RELEASE and CANCEL")
+  -- SORT came here off SELECT, which is the marking key now: it is a verb
+  -- about the whole box and every other verb this screen has is already
+  -- behind this button.
+  T.eq(labels(menu.items), "STATS|RELEASE|SORT|CANCEL",
+    "with STATS, RELEASE, SORT and CANCEL")
   game.stack:pop()
 
   drive(game, screen, "left", "start")
@@ -427,7 +431,7 @@ do
   local screen = factory.new(game)
   drive(game, screen, "start")
   local menu = game.stack:top()
-  T.eq(labels(menu.items), "STATS|RELEASE|REMEMBER|CANCEL",
+  T.eq(labels(menu.items), "STATS|RELEASE|SORT|REMEMBER|CANCEL",
     "a provider's row lands before CANCEL, which stays the way out")
   T.eq(seen[1], "box", "and the provider is told which pane it is on")
   -- the vanilla three rows put the box's bottom edge exactly on the last tile
@@ -438,7 +442,7 @@ do
 
   drive(game, screen, "left", "start")
   T.eq(labels(game.stack:top().items), "STATS|REMEMBER|CANCEL",
-    "the party side grows the row too, still without RELEASE")
+    "the party side grows the row too, still without RELEASE or SORT")
   T.eq(seen[2], "party", "and knows it is the party side")
   game.stack:pop()
 
@@ -446,7 +450,7 @@ do
   -- back across to the box side, where RELEASE is, so the row that is gone is
   -- the only difference from the first assertion in this block
   drive(game, screen, "right", "start")
-  T.eq(labels(game.stack:top().items), "STATS|RELEASE|CANCEL",
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|SORT|CANCEL",
     "unregistering takes the row back out")
   game.stack:pop()
 end
@@ -459,7 +463,7 @@ do
   forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "start")
-  T.eq(labels(game.stack:top().items), "STATS|RELEASE|AAA|BBB|CANCEL",
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|SORT|AAA|BBB|CANCEL",
     "two providers both get a row, in registration order")
   game.stack:pop()
   dropA(); dropB()
@@ -474,7 +478,7 @@ do
   forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "start")
-  T.eq(labels(game.stack:top().items), "STATS|RELEASE|TWO|CANCEL",
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|SORT|TWO|CANCEL",
     "a second registration from one owner replaces the first")
   game.stack:pop()
   drop1(); drop2()
@@ -490,12 +494,12 @@ do
   forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "start")
-  T.eq(labels(game.stack:top().items), "STATS|RELEASE|GOOD|CANCEL",
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|SORT|GOOD|CANCEL",
     "a throwing provider costs its row and nothing else")
   game.stack:pop()
   -- and it is not asked a second time
   drive(game, screen, "start")
-  T.eq(labels(game.stack:top().items), "STATS|RELEASE|GOOD|CANCEL",
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|SORT|GOOD|CANCEL",
     "and it is not asked again")
   game.stack:pop()
   dropBad(); dropGood()
@@ -511,7 +515,7 @@ do
   forgetGrid()
   local screen = factory.new(game)
   drive(game, screen, "start")
-  T.eq(labels(game.stack:top().items), "STATS|RELEASE|CANCEL",
+  T.eq(labels(game.stack:top().items), "STATS|RELEASE|SORT|CANCEL",
     "a provider with no opinion and a labelless row add nothing")
   game.stack:pop()
   dropNil(); dropJunk()
@@ -659,10 +663,16 @@ do
   game.stack:pop()
 end
 
--- SELECT belongs to the box: it opens SORT there, and is still the shortcut
--- across the middle of the screen from the party
+-- SELECT belongs to the box: it MARKS there -- SORT moved to the popup START
+-- opens -- and is still the shortcut across the middle of the screen from the
+-- party, where marking would mean answering what a multi-move does to battle
+-- order.
 do
-  local game = fakeGame({ mon("FIXMON_A") }, { mon("FIXMON_B") })
+  -- three in the BOX, so the cursor has a POKeMON to mark two cells along:
+  -- fakeGame takes the box first (line 104), and marking an empty cell marks
+  -- nothing, which is the point of it.
+  local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_C"), mon("FIXMON_D") },
+                        { mon("FIXMON_B") })
   forgetGrid()
   local screen = factory.new(game)
 
@@ -672,16 +682,20 @@ do
   T.eq(screen.pane, "box", "SELECT crosses to the box")
   T.eq(game.stack:top(), nil, "without opening anything")
 
+  -- SELECT in the BOX marks the cell rather than opening anything: SORT moved
+  -- to the popup and SELECT is the marking key, so several POKeMON can be
+  -- carried between boxes at once.
   drive(game, screen, "right", "right", "select")
-  local menu = game.stack:top()
-  T.check(menu ~= nil and type(menu.items) == "table",
-    "SELECT again opens the sort menu")
+  T.eq(game.stack:top(), nil, "SELECT in the box opens nothing")
   T.eq(screen.boxSlot, 3, "leaving the box cursor where it was")
-  game.stack:pop()
+  T.check(screen:markedAt(3), "and marks the cell it is on")
+  drive(game, screen, "select")
+  T.check(not screen:markedAt(3), "pressed again, it unmarks it")
 
-  drive(game, screen, "up", "select")
-  T.check(game.stack:top() ~= nil, "and the header counts as the box side")
-  game.stack:pop()
+  -- and an empty cell has nothing to mark
+  drive(game, screen, "right", "select")
+  T.eq(screen.boxSlot, 4, "on an empty cell")
+  T.check(not screen:markedAt(4), "SELECT marks nothing there")
 end
 
 
@@ -1615,14 +1629,17 @@ do
   local game = fakeGame({ mon("FIXMON_A"), mon("FIXMON_B") })
   local screen = factory.new(game)
 
-  drive(game, screen, "select")
+  -- Opened from the popup START opens now, not from SELECT: the row's
+  -- onSelect is this call, and where the row sits is asserted with the rest of
+  -- the popup above.
+  screen:openSortMenu()
   local menu = game.stack:top()
   T.eq(labels(menu.items), "COLLAPSE|BY DEX|BY LEVEL|BY NAME|BY TYPE|CANCEL",
     "no UNDO row before anything has been sorted")
   game.stack:pop()
 
   screen:sortBox("dex")
-  drive(game, screen, "select")
+  screen:openSortMenu()
   menu = game.stack:top()
   T.eq(labels(menu.items),
     "COLLAPSE|BY DEX|BY LEVEL|BY NAME|BY TYPE|UNDO|CANCEL",
@@ -1666,12 +1683,16 @@ do
   T.eq(game.stack:top(), nil, "choosing a row closes the menu")
   T.eq(grid(screen), "AB" .. string.rep(".", 18), "and COLLAPSE did its work")
 
-  -- with something in hand there is no menu at all
+  -- with something in hand there is no sorting and no marking: one key cannot
+  -- mean "put this down" and "mark that" at once, and a sort that reordered
+  -- the box around a POKeMON in your hand would have nowhere to put it back
   drive(game, screen, "a")
   T.check(screen.held ~= nil, "carrying one")
+  screen:openSortMenu()
+  T.eq(game.stack:top(), nil, "SORT opens nothing while one is in your hand")
   drive(game, screen, "select")
-  T.eq(game.stack:top(), nil,
-    "SELECT opens nothing while a POKeMON is in your hand")
+  T.check(not screen:markedAt(screen.boxSlot),
+    "and SELECT marks nothing either")
 end
 
 -- ------- a full-colour icon is clamped to its cell on BOTH axes

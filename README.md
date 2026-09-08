@@ -99,15 +99,34 @@ OG modes replace the lot. The screen asks; the mode answers.
 | --- | --- |
 | Move the cursor | D-pad |
 | Cross to the party / back to the box | LEFT out of the first column, RIGHT out of the party — or SELECT from the party |
-| Sort or tidy the open box | SELECT, on the box side |
+| Mark a POKéMON, or unmark it | SELECT, on the box side |
+| Move everything marked here | A, with something marked |
+| Clear the marks | B |
 | Pick a POKéMON up, put it down, swap two | A |
 | Put a carried POKéMON back where it came from | B |
-| Close the box | B, with nothing in hand |
+| Close the box | B, with nothing in hand and nothing marked |
 | Focus the box header | UP out of the top row |
 | Previous / next box | LEFT and RIGHT on the header |
 | Jump to any box | A on the header |
-| STATS and RELEASE | START, over a POKéMON |
+| STATS, SEND, RELEASE, SORT and UNDO | START |
 | Open the box without a PC | **BOX** on the START menu |
+
+### Marking, and moving several at once
+
+**SELECT** marks the cell the cursor is on, and marks it again to unmark it. A
+marked cell wears a small filled square in its corner. With anything marked,
+**A** puts *all of it* down wherever the cursor is — and the marks survive a
+box change, which is the whole point: mark six in BOX 1, walk to BOX 3, press
+A. **B** clears them.
+
+If the box you land on has room for some but not all of them, none of them
+move and it says so. Half a group moved across two boxes is the outcome worth
+writing extra code to avoid.
+
+SORT used to be on SELECT. It is a verb about the whole box, so it moved to
+the popup **START** opens, where every other verb this screen has already
+was — which is what freed SELECT for the thing a grid of twenty actually
+wants.
 
 The cursor in the grid is an arrow in the band above a POKéMON's head,
 pointing down at it, and the same arrow **hollow** while that POKéMON is in

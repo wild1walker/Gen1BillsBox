@@ -633,12 +633,25 @@ do
 end
 
 do
-  io.write("no actions over an empty cell, or with a POKeMON in hand\n")
+  io.write("the popup over an empty cell, and none with a POKeMON in hand\n")
   local save = saveWith(3, 2)
   local s = screenOn(save)
+
+  -- SORT is a verb about the BOX and it lives here now, off SELECT, so an
+  -- empty cell still has something to offer.  What it does not offer is any
+  -- of the rows that are about a POKeMON.
   s.pane, s.boxSlot = "box", 10
   s:openActions()
-  eq(s.actions, nil, "nothing to act on")
+  local labels = {}
+  for _, item in ipairs((s.actions or {}).items or {}) do
+    labels[#labels + 1] = tostring(item.label)
+  end
+  eq(table.concat(labels, ","), "SORT,CANCEL",
+    "over an empty cell it is the box's verbs and nothing else")
+
+  -- and with one in hand there is no popup at all: every row here would act
+  -- on a POKeMON that is not in the box any more
+  s.actions = nil
   s.boxSlot = 1
   s:grab()
   s:openActions()

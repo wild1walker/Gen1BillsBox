@@ -497,8 +497,9 @@ do
   for _, item in ipairs(menus[1] and menus[1].items or {}) do
     ownLabels[#ownLabels + 1] = tostring(item.label)
   end
-  eq(table.concat(ownLabels, ","), "STATS,RELEASE,CANCEL",
-    "and over one of this cartridge's it still does")
+  eq(table.concat(ownLabels, ","), "STATS,SEND,RELEASE,SORT,CANCEL",
+    "and over one of this cartridge's it still does, beside SEND and the SORT "
+    .. "that moved here off SELECT")
 end
 
 do
@@ -591,6 +592,158 @@ do
   end
   eq(table.concat(labels, ","), "CANCEL",
     "and no STATS row for a POKeMON this game has no entry for")
+end
+
+do
+  io.write("SELECT marks, and A moves the whole mark\n")
+  reset()
+  local save = newSave(1)
+  local screen = screenOn(save)
+  local boxes = Boxes.ensure(save)
+  local first = { mon("PIDGEY", "A"), mon("RATTATA", "B"), mon("PIKACHU", "C") }
+  for i, each in ipairs(first) do boxes[1][i] = each end
+  screen.pane, screen.boxSlot = "box", 1
+
+  -- SORT is off SELECT: it lives in the popup now, and SELECT marks
+  menus = {}
+  screen:toggleMark()
+  eq(#menus, 0, "SELECT opens no menu any more")
+  ok(screen:markedAt(1), "it marks the cell the cursor is on")
+  screen:toggleMark()
+  ok(not screen:markedAt(1), "and marks it again to unmark it")
+
+  screen:toggleMark()
+  screen.boxSlot = 2
+  screen:toggleMark()
+  screen.boxSlot = 3
+  screen:toggleMark()
+  eq(#screen.picked, 3, "three marked")
+
+  -- the marks survive a box change, which is the whole point
+  screen:changeBox(2)
+  eq(save.currentBox, 3, "walk to BOX 3")
+  eq(#screen.picked, 3, "with the marks still held")
+  ok(not screen:markedAt(1), "and nothing on THIS page drawn as marked")
+
+  screen.boxSlot = 1
+  ok(screen:placeMarks(), "A puts all three down here")
+  eq(#boxes[1], 0, "BOX 1 is empty")
+  eq(#boxes[3], 3, "and BOX 3 has them")
+  eq(#screen.picked, 0, "with the marks cleared")
+
+  -- every one of them, once, and the same ones
+  local seen = {}
+  for _, each in ipairs(boxes[3]) do seen[each.nickname] = (seen[each.nickname] or 0) + 1 end
+  eq(seen.A .. seen.B .. seen.C, "111", "each exactly once")
+end
+
+do
+  io.write("a full box takes none of them, and B clears the marks\n")
+  reset()
+  local save = newSave(1)
+  local screen = screenOn(save)
+  local boxes = Boxes.ensure(save)
+  for i = 1, 3 do boxes[1][i] = mon("PIDGEY", "M" .. i) end
+  for i = 1, Boxes.CAPACITY - 1 do boxes[2][i] = mon("RATTATA", "F" .. i) end
+
+  screen.pane = "box"
+  for cell = 1, 3 do screen.boxSlot = cell screen:toggleMark() end
+  eq(#screen.picked, 3, "three marked in BOX 1")
+
+  screen:changeBox(1)
+  said = {}
+  ok(not screen:placeMarks(), "BOX 2 has room for one and refuses all three")
+  ok(#said == 1 and said[1].text:find("full"), "saying it is full")
+  eq(#boxes[1], 3, "BOX 1 keeps all three")
+  eq(#boxes[2], Boxes.CAPACITY - 1, "and BOX 2 is untouched -- not one moved")
+  eq(#screen.picked, 3, "the marks are still held")
+
+  ok(screen:clearMarks(), "B clears them")
+  ok(not screen:clearMarks(), "and says so only while there were any")
+end
+
+do
+  io.write("SEND is on the box popup, and it is the box's own\n")
+  reset()
+  local save = newSave(1)
+  local screen = screenOn(save)
+  local boxes = Boxes.ensure(save)
+  local leaving = mon("BULBASAUR", "GOING")
+  boxes[1][1] = leaving
+  screen.pane, screen.boxSlot = "box", 1
+
+  menus = {}
+  screen:openActions()
+  local labels = {}
+  for _, item in ipairs(menus[1] and menus[1].items or {}) do
+    labels[#labels + 1] = tostring(item.label)
+  end
+  eq(table.concat(labels, ","), "STATS,SEND,RELEASE,SORT,CANCEL",
+    "the popup carries SEND and the SORT that came off SELECT")
+
+  -- The party menu's SEND empties save.party.  Handing a BOXED POKeMON to
+  -- that would deposit it and leave the original in the box -- one POKeMON in
+  -- two places -- so this is the box's own move.
+  screen:sendToGlobal(1)
+  eq(#boxes[1], 0, "the POKeMON leaves the cartridge box")
+  eq(screen.global:count(), 1, "and is in the GLOBAL BOX")
+  eq(screen.global:at(1, 1).nickname, "GOING", "as itself, exactly once")
+
+  -- and it is not offered ON a global page, where it already is
+  screen.globalPage, screen.boxSlot = 1, 1
+  menus = {}
+  screen:openActions()
+  local onGlobalLabels = {}
+  for _, item in ipairs(menus[1] and menus[1].items or {}) do
+    onGlobalLabels[#onGlobalLabels + 1] = tostring(item.label)
+  end
+  eq(table.concat(onGlobalLabels, ","), "STATS,CANCEL",
+    "no SEND, no RELEASE and no SORT on a page this save does not own")
+end
+
+do
+  io.write("nothing a menu covers claims true colour\n")
+  -- markTrueColor does not copy anything: it says "this RECTANGLE is true
+  -- colour" and the renderer re-blits whatever is in it RAW at composite time,
+  -- after the whole frame is drawn.  A menu over the grid is therefore
+  -- re-blitted raw wherever it overlaps an icon's claim -- and a Gen 1 menu is
+  -- black on WHITE while DARK inverts the page around it, so the overlap came
+  -- back as white blocks in a grid, exactly the size of the cells underneath.
+  -- Reported as "anything that goes over a POKeMON gets inverted".
+  reset()
+  local save = newSave(1)
+  local screen, game = screenOn(save)
+  Boxes.ensure(save)[1][1] = mon("BULBASAUR", "UNDER")
+
+  local states = { screen }
+  game.stack.states = states
+
+  ok(not screen:coveredByOverlay(0, 0, 32, 24),
+    "with nothing above it, an icon claims its rectangle")
+
+  -- a Menu is a stack state with its own tile geometry (src/ui/Menu.lua:19)
+  states[2] = { tx = 9, ty = 10, tw = 11, th = 8 }
+  ok(screen:coveredByOverlay(9 * 8, 10 * 8, 32, 24),
+    "an icon the menu overlaps does not")
+  ok(not screen:coveredByOverlay(0, 0, 16, 16),
+    "while one it does not reach still does")
+
+  -- a state above that cannot be measured covers everything: better to lose
+  -- the icons' colours for as long as it is open than to leave a white block
+  states[2] = { something = true }
+  ok(screen:coveredByOverlay(0, 0, 16, 16),
+    "and something above that cannot be measured is treated as covering all")
+
+  -- and the icon draw asks: the rectangle it would claim is the one it hands
+  -- the matte and the mark, so both agree or neither happens
+  screen.artRect = function() return { w = 16, h = 16 } end
+  states[2] = nil
+  ok(screen:artRectFor({ species = "BULBASAUR" }, 0, 0) ~= nil,
+    "with nothing above, the icon claims its art rectangle")
+  states[2] = { tx = 0, ty = 0, tw = 20, th = 18 }
+  ok(screen:artRectFor({ species = "BULBASAUR" }, 0, 0) == nil,
+    "and under a menu it claims nothing -- no white block for the menu to "
+    .. "come back as")
 end
 
 -- ------------------------------------------------------- the CHANGE BOX list
