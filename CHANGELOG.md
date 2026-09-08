@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.13.0
+
+- **The GLOBAL BOX keeps its holes, and it sorts.** Reported together — "sort
+  isn't working on the global boxes, and it's not letting me have holes, don't
+  make it auto compact" — and they were the same thing.
+
+  The box was a **queue**: the view was the union of every save's outbox
+  sorted by when each POKéMON was sent, and a cell was an index into it. So it
+  closed up behind every withdrawal, and its order was a property of *other
+  saves' files*, which this save cannot write. That is why SORT was refused
+  there, and why a hole was impossible to keep.
+
+  A cell is a **position** now. The arrangement — id to cell — lives in this
+  save's own bucket, so:
+
+  - taking one out leaves the cell empty and moves nothing else;
+  - putting one down on a cell puts it **in that cell** (an occupied one still
+    falls back to the first free);
+  - B puts a picked-up POKéMON back in the cell it came out of;
+  - SORT and UNDO are on the popup, and they rewrite one file this save owns.
+    The other cartridge keeps its own order — two trainers' PCs disagreeing
+    about where they filed the same POKéMON, not a conflict.
+
+  A POKéMON another cartridge sent since this save last looked takes the
+  lowest free cell, in the order it was sent, which is exactly where the queue
+  would have put it.
+
 ## 1.12.0
 
 - **A POKéMON taken out of the GLOBAL BOX is registered in the POKéDEX.**

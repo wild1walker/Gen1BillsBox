@@ -437,7 +437,10 @@ do
   screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 9
   screen:place()
   ok(screen.held == nil, "and put down on GLOBAL 1")
-  eq(screen.boxSlot, 1, "in the first free cell, the cursor following it")
+  -- IN CELL 9, where it was put.  The pages used to be a gapless queue, so a
+  -- deposit landed in the first free cell wherever it was aimed; they keep
+  -- their holes now, so a box you can leave a gap in is a box you can point at.
+  eq(screen.boxSlot, 9, "in the cell it was aimed at, not the first free one")
   eq(converted.toGen1, 0, "with nothing converted on the way in")
   eq(mounts, 0, "and no dataset mounted -- there is nothing to mount one for")
 
@@ -450,17 +453,19 @@ do
   eq(Boxes.count(save, 1), 0, "without touching a cartridge box")
 
   -- the mount is paid for ONCE
-  -- and a deposit aimed at an OCCUPIED cell still lands: the pages have no
-  -- gaps, so the first free cell is the only place a deposit can go, and the
-  -- cursor moving there is what says so
+  -- and a deposit aimed at an OCCUPIED cell still lands, in the first free one
+  -- -- the only sane answer to pointing at somewhere full, and what every
+  -- deposit did before the pages kept their holes.
   -- The row the first one left stays empty for as long as the screen is open,
   -- so the second is picked up out of row 2.
   screen.pane, screen.partySlot = "party", 2
   screen:grab()
   ok(screen.held ~= nil, "a second POKeMON comes out of the party")
-  screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 1
+  screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 9
   screen:place()
-  eq(screen.boxSlot, 2, "and lands in the cell after the first, not on top of it")
+  eq(screen.boxSlot, 1,
+    "aimed at the cell the first one is in, it lands in the first free cell "
+    .. "instead -- and the cursor moving there is what says so")
   eq(screen.global:count(), 2, "with both of them in the box")
   eq(mounts, 0, "and still nothing mounted")
 end
@@ -555,7 +560,9 @@ do
   for _, item in ipairs((screen.actions or {}).items or {}) do
     labels[#labels + 1] = tostring(item.label)
   end
-  eq(table.concat(labels, ","), "STATS,CANCEL", "no RELEASE row is offered")
+  eq(table.concat(labels, ","), "STATS,SORT,CANCEL",
+    "SORT is offered but RELEASE is not -- the arrangement is this save's to "
+    .. "change, a POKeMON living in another save is not this save's to destroy")
   screen:doRelease()
   eq(screen.global:count(), 1, "and calling it anyway releases nothing")
 end
@@ -694,9 +701,13 @@ do
   screen.globalPage, screen.boxIndex = nil, 1
   ok(screen:placeMarks(), "and they move")
   eq(Boxes.count(save, 1), 2, "two arrive")
-  local left = screen.global:at(1, 1)
+  -- IN CELL 3, where it always was: the box keeps its holes, so the one
+  -- nobody marked did not slide up behind the two that left.
+  ok(screen.global:at(1, 1) == nil, "cells 1 and 2 are empty")
+  ok(screen.global:at(1, 2) == nil, "...both of them")
+  local left = screen.global:at(1, 3)
   eq(left and tostring(left.nickname), "THREE",
-    "and the one left in the GLOBAL BOX is THREE -- the one nobody marked")
+    "and THREE is still in cell 3 -- the one nobody marked, where it was")
 end
 
 -- ---------------------------------------------- SEND, on the PARTY half too

@@ -390,8 +390,14 @@ do
   screen.boxSlot = 7          -- aimed at an empty cell in the middle
   screen:place()
   ok(screen.held == nil, "and put down on GLOBAL 1")
-  eq(screen.boxSlot, 1,
-    "in the first free cell, with the cursor following it there")
+  -- IN CELL 7, where it was put.  The pages used to be a queue with no gaps,
+  -- so a deposit landed in the first free cell wherever it was aimed; they
+  -- keep their holes now, so a box you can leave a gap in is a box you can
+  -- point at.
+  eq(screen.boxSlot, 7, "in the cell it was aimed at, not the first free one")
+  ok(screen.global:at(1, 7) ~= nil, "and that is where the store has it")
+  ok(screen.global:at(1, 1) == nil, "cell 1 is left empty, because nothing "
+    .. "closed up behind it")
   eq(screen.global:count(), 1, "the box has it")
   eq(#Boxes.ensure(save)[1], 0, "and no cartridge box does")
   eq(#save.party, 1, "nor the party")
@@ -468,13 +474,15 @@ do
   eq(screen.global:count(), 1, "and B puts it back on the shared page")
   screen.pane = "box"
 
-  -- no SORT
+  -- SORT, which a global page DOES have now.  It rewrites this save's own
+  -- arrangement of the shared box -- one file this save owns -- rather than
+  -- anybody else's outbox, which is what it was refused for.
   menus = {}
   screen:openSortMenu()
-  eq(#menus, 0, "SELECT opens no sort menu on a global page")
+  eq(#menus, 1, "a global page opens the sort menu")
   screen.globalPage = nil
   screen:openSortMenu()
-  ok(#menus == 1, "and still does on a cartridge box")
+  eq(#menus, 2, "and so does a cartridge box")
 
   -- no RELEASE
   screen.globalPage = 1
@@ -485,8 +493,10 @@ do
   for _, item in ipairs(menus[1] and menus[1].items or {}) do
     labels[#labels + 1] = tostring(item.label)
   end
-  eq(table.concat(labels, ","), "STATS,CANCEL",
-    "START over a shared POKeMON offers no RELEASE")
+  eq(table.concat(labels, ","), "STATS,SORT,CANCEL",
+    "START over a shared POKeMON offers SORT but no RELEASE -- the box's own "
+    .. "arrangement is this save's to change, and a POKeMON living in another "
+    .. "save is not this save's to destroy")
   screen.globalPage = nil
   screen.game.save.currentBox = 1
   Boxes.ensure(screen.game.save)[1][1] = mon("RATTATA")
@@ -590,8 +600,9 @@ do
   for _, item in ipairs(menus[1] and menus[1].items or {}) do
     labels[#labels + 1] = tostring(item.label)
   end
-  eq(table.concat(labels, ","), "CANCEL",
-    "and no STATS row for a POKeMON this game has no entry for")
+  eq(table.concat(labels, ","), "SORT,CANCEL",
+    "and no STATS row for a POKeMON this game has no entry for -- SORT is "
+    .. "about the box and not about the POKeMON under the cursor, so it stays")
 end
 
 do
@@ -697,8 +708,9 @@ do
   for _, item in ipairs(menus[1] and menus[1].items or {}) do
     onGlobalLabels[#onGlobalLabels + 1] = tostring(item.label)
   end
-  eq(table.concat(onGlobalLabels, ","), "STATS,CANCEL",
-    "no SEND, no RELEASE and no SORT on a page this save does not own")
+  eq(table.concat(onGlobalLabels, ","), "STATS,SORT,CANCEL",
+    "no SEND and no RELEASE on a page this save does not own -- but SORT, "
+    .. "which only ever writes this save's own arrangement of it")
 end
 
 do
@@ -861,9 +873,14 @@ do
   for _, each in ipairs(boxes[1]) do names[tostring(each.nickname)] = true end
   ok(names.ONE and names.TWO, "ONE and TWO, the two that were marked")
   eq(screen.global:count(), 1, "one is left in the GLOBAL BOX")
-  local left = screen.global:at(1, 1)
+  -- IN CELL 3, where it always was.  The box used to close up behind a
+  -- withdrawal, which is what made a mark point at the wrong POKeMON; it
+  -- keeps its holes now, so the one nobody marked did not move.
+  ok(screen.global:at(1, 1) == nil, "cells 1 and 2 are empty")
+  ok(screen.global:at(1, 2) == nil, "...both of them")
+  local left = screen.global:at(1, 3)
   eq(left and tostring(left.nickname), "THREE",
-    "and it is THREE -- the one nobody marked")
+    "and THREE is still in cell 3 -- nothing slid up behind the two that left")
 end
 
 -- ----------------------------- and a cell that really is gone says so plainly
@@ -1020,6 +1037,120 @@ do
   ok(okCall, "taking one does not raise")
   ok(screen.held ~= nil, "and it still comes out")
   ok(save.pokedex == nil, "no dex is invented for a save that has none")
+end
+
+-- ------------------------------------------- holes, and SORT over the top
+--
+-- Reported together: "sort isn't working on the global boxes, and it's not
+-- letting me have holes, don't make it auto compact."
+--
+-- Both were the same thing.  The box was a QUEUE -- the view was the union of
+-- every save's outbox sorted by when each was sent, and a cell was an index
+-- into it -- so it closed up behind every withdrawal, and its order was a
+-- property of other saves' files that this one cannot write.
+--
+-- A cell is a POSITION now, kept in this save's own bucket as an id-to-cell
+-- map.  A hole stays a hole because nothing else moved, and a sort rewrites
+-- one file this save owns.
+
+do
+  io.write("a hole in the GLOBAL BOX stays a hole\n")
+  reset()
+  otherCartHoldingList({ mon("CHARMANDER", "ONE"), mon("SQUIRTLE", "TWO"),
+                         mon("PIDGEY", "THREE") })
+  local save = newSave(1)
+  local screen = screenOn(save)
+  screen.pane, screen.globalPage = "box", 1
+
+  -- take the MIDDLE one out
+  screen.boxSlot = 2
+  screen:grab()
+  ok(screen.held ~= nil, "TWO comes out of cell 2")
+
+  ok(screen.global:at(1, 1) ~= nil, "ONE has not moved")
+  eq(screen.global:at(1, 1).nickname, "ONE", "...it is still ONE")
+  ok(screen.global:at(1, 2) == nil, "cell 2 is empty, and stays empty")
+  ok(screen.global:at(1, 3) ~= nil, "and THREE did not slide up into it")
+  eq(screen.global:at(1, 3).nickname, "THREE", "...it is still THREE, in cell 3")
+
+  -- and B puts it back where it was, not at the end
+  screen:returnHeld()
+  eq(screen.global:count(), 3, "B puts it back")
+  eq(screen.global:at(1, 2).nickname, "TWO", "into the cell it came out of")
+end
+
+do
+  io.write("a deposit fills the hole rather than starting a new page\n")
+  reset()
+  otherCartHoldingList({ mon("CHARMANDER", "ONE"), mon("SQUIRTLE", "TWO"),
+                         mon("PIDGEY", "THREE") })
+  local save = newSave(2)
+  save.party[1] = mon("RATTATA", "NEW")
+  local screen = screenOn(save)
+  screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 2
+  screen:grab()          -- TWO out of cell 2
+  screen:place()         -- and straight back down: cell 2 again
+  eq(screen.global:at(1, 2).nickname, "TWO", "put down where it was picked up")
+
+  -- now take it out for good, and send a different one at that cell
+  screen.boxSlot = 2
+  screen:grab()
+  screen.pane, screen.partySlot = "party", 1
+  screen:place()         -- TWO goes into the party, leaving the hole
+  ok(screen.global:at(1, 2) == nil, "the hole is open")
+
+  screen.pane, screen.partySlot = "party", 1
+  screen:grab()
+  screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 2
+  screen:place()
+  local landed = screen.global:at(1, 2)
+  eq(landed and tostring(landed.nickname), "NEW",
+    "and a POKeMON put down on it lands in it")
+  eq(screen.global:count(), 3, "three in the box, as before")
+end
+
+do
+  io.write("SORT rewrites this save's arrangement, and UNDO puts it back\n")
+  reset()
+  -- deliberately not in name order
+  otherCartHoldingList({ mon("SQUIRTLE", "CCC"), mon("PIDGEY", "AAA"),
+                         mon("CHARMANDER", "BBB") })
+  local save = newSave(1)
+  local screen = screenOn(save)
+  screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 1
+
+  -- Session:at answers the stored POKeMON, which is what the grid draws.
+  local function nameAt(cell)
+    local at = screen.global:at(1, cell)
+    return at and tostring(at.nickname) or nil
+  end
+  eq(nameAt(1), "CCC", "they open in the order they were sent")
+
+  menus = {}
+  screen:openActions()
+  local labels = {}
+  for _, item in ipairs(menus[1] and menus[1].items or {}) do
+    labels[#labels + 1] = tostring(item.label)
+  end
+  ok(table.concat(labels, ","):find("SORT"), "the popup on a global page has SORT")
+
+  screen:sortGlobal("name")
+  eq(nameAt(1), "AAA", "BY NAME puts AAA first")
+  eq(nameAt(2), "BBB", "...BBB second")
+  eq(nameAt(3), "CCC", "...and CCC third")
+
+  -- and NOBODY ELSE'S FILE was touched: the order lives in this save's bucket
+  local ours = GlobalBox.bucketsIn(modSaveTable)[1]
+  ok(type(ours) == "table" and type(ours.cells) == "table",
+    "the arrangement is in this save's own bucket")
+  local theirs = GlobalBox.bucketsIn(
+    SaveSerializer.decode(disk["cart:wildcrystal/slot1"]).modData[MOD_ID])[1]
+  eq(theirs.mons[1].nickname, "CCC",
+    "and the other cartridge's outbox is in the order it always was")
+
+  ok(screen:canUndoSort(), "UNDO is offered")
+  screen:undoSort()
+  eq(nameAt(1), "CCC", "and puts the sent order back")
 end
 
 io.write(("\n%d passed, %d failed\n"):format(passed, failed))

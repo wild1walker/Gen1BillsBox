@@ -235,8 +235,14 @@ return function(mod, GlobalBox)
   -- view and a write moves them.  Reading the OTHER saves off disk again is
   -- the expensive half, so that is done once per session and only the union
   -- is recomputed -- a second cartridge cannot be running to change them.
+  -- The arrangement is this save's own -- see GlobalBox.cellsOf -- so it is
+  -- read on the way in and written on the way out.  Written EVERY time,
+  -- because that is what prunes it: `remember` records the ids the view has
+  -- and no others, so a POKeMON another cartridge withdrew stops being a cell
+  -- of ours the first time we look after it went.
   function Session:refresh()
-    self.view = GlobalBox.view(self.sources)
+    self.view = GlobalBox.view(self.sources, GlobalBox.cellsOf(self.bucket))
+    GlobalBox.remember(self.bucket, self.view)
     return self.view
   end
 
@@ -253,11 +259,64 @@ return function(mod, GlobalBox)
 
   function Session:capacity() return GlobalBox.PAGE end
 
-  -- How many are on ONE page, which is what a header counts.
+  -- How many are on ONE page, which is what a header counts.  Asked of the
+  -- page rather than worked out from the total: with holes in it those two
+  -- are different numbers, and the header is about the page you can see.
   function Session:countOn(page)
-    local total = self:count()
-    local before = (tonumber(page) or 1) - 1
-    return math.max(0, math.min(GlobalBox.PAGE, total - before * GlobalBox.PAGE))
+    return GlobalBox.countOn(self.view, page)
+  end
+
+  -- The lowest cell nothing is in, on a page or across the whole box.
+  function Session:freeCell(page)
+    return GlobalBox.freeCell(self.view, page)
+  end
+
+  -- A page and a slot as the one number the store thinks in.  Published
+  -- because the screens aim a deposit at the cell the cursor is on and have
+  -- no reason to know how a page is laid out.
+  function Session:cellAt(page, slot)
+    return GlobalBox.indexAt(page, slot)
+  end
+
+  -- ------- and the arrangement, which is what makes SORT possible at all
+  --
+  -- Sorting a shared box sounds like it should be forbidden, and it was: the
+  -- order used to be a property of the UNION, and the union is made of other
+  -- saves' files that this save cannot write.
+  --
+  -- The arrangement is not.  It is a map of id to cell kept in THIS save's
+  -- own bucket, so reordering it is this save writing this save -- and the
+  -- other cartridge keeps its own, which is not a conflict but two trainers'
+  -- PCs disagreeing about where they filed the same POKeMON.
+
+  -- Every POKeMON in the box, in cell order.
+  function Session:entries()
+    local out = {}
+    for cell = 1, GlobalBox.CAPACITY do
+      local entry = self.view[cell]
+      if entry then out[#out + 1] = entry end
+    end
+    return out
+  end
+
+  -- The arrangement as it stands, which is what an UNDO holds on to.
+  function Session:arrangement()
+    local out = {}
+    for cell = 1, GlobalBox.CAPACITY do
+      local entry = self.view[cell]
+      if entry then out[entry.id] = cell end
+    end
+    return out
+  end
+
+  -- ...and putting one back, whether it came from a sort or from an undo.
+  function Session:arrange(cells)
+    if not self:writable() then return false end
+    local into = GlobalBox.cellsOf(self.bucket)
+    for id in pairs(into) do into[id] = nil end
+    for id, cell in pairs(cells or {}) do into[id] = cell end
+    self:refresh()
+    return true
   end
 
   -- The stored POKeMON, in the box's own Gen 1 shape.  This is what a screen
@@ -279,10 +338,11 @@ return function(mod, GlobalBox)
   -- since, and the id is the only thing that survives that.
   function Session:locate(id)
     if id == nil then return nil end
-    for index, entry in ipairs(self.view) do
-      if entry.id == id then
-        return math.floor((index - 1) / GlobalBox.PAGE) + 1,
-               ((index - 1) % GlobalBox.PAGE) + 1
+    for cell = 1, GlobalBox.CAPACITY do
+      local entry = self.view[cell]
+      if entry and entry.id == id then
+        return math.floor((cell - 1) / GlobalBox.PAGE) + 1,
+               ((cell - 1) % GlobalBox.PAGE) + 1, cell
       end
     end
     return nil
@@ -302,21 +362,25 @@ return function(mod, GlobalBox)
   -- Deposit.  Answers with where it landed -- page and cell -- because the
   -- box is a queue and the cell the player was aiming at is not necessarily
   -- the one it went into; the cursor follows this rather than guessing.
-  function Session:put(game, mon)
+  -- `cell` is where the player was aiming, and it is honoured when it is free
+  -- -- a box with holes in it is a box you point at.  Without one the deposit
+  -- takes the lowest free cell, which is what a SEND from a party menu, with
+  -- no cell to aim at, has always done.
+  function Session:put(game, mon, cell)
     if not self:writable() then return nil, "no_save" end
     local stored, reason = toStored(game, mon)
     if not stored then return nil, reason end
     local id, why = GlobalBox.deposit(self.bucket, self.view, stored,
                                       generation())
     if not id then return nil, why end
-    self:refresh()
-    for index, entry in ipairs(self.view) do
-      if entry.id == id then
-        return index, math.floor((index - 1) / GlobalBox.PAGE) + 1,
-               ((index - 1) % GlobalBox.PAGE) + 1
-      end
+    local wanted = tonumber(cell)
+    if wanted and not self.view[wanted] then
+      GlobalBox.cellsOf(self.bucket)[id] = wanted
     end
-    return nil, "full"
+    self:refresh()
+    local page, slot, at = self:locate(id)
+    if not page then return nil, "full" end
+    return at, page, slot
   end
 
   -- Withdraw, in this cartridge's shape.  The ticket is how `untake` puts it
@@ -339,9 +403,15 @@ return function(mod, GlobalBox)
     return mon, ticket
   end
 
+  -- Back into the cell it came out of, not merely back into the box.  The
+  -- ticket carries it: `withdraw` reads the cell off the entry it took, and
+  -- putting it anywhere else would make a press of B move a POKeMON.
   function Session:untake(ticket)
     if not (self:writable() and type(ticket) == "table") then return false end
     local ok = GlobalBox.restore(self.bucket, ticket)
+    if ok and ticket.id ~= nil and tonumber(ticket.cell) then
+      GlobalBox.cellsOf(self.bucket)[ticket.id] = tonumber(ticket.cell)
+    end
     self:refresh()
     return ok
   end
