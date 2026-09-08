@@ -678,5 +678,102 @@ do
     "and the one left in the GLOBAL BOX is THREE -- the one nobody marked")
 end
 
+-- ---------------------------------------------- SEND, on the PARTY half too
+--
+-- Gold's arm of "when you select a party member in box send isn't an option".
+-- The row was left off because the party MENU's send empties save.party
+-- directly, which would leave this screen's row list AND its mail slots
+-- describing a POKeMON that is not in the party.  Both true, and both a
+-- reason for the party half to have its own send rather than none: the cursor
+-- already lifts POKeMON out correctly, with `partyTake` and `Mail.removeSlot`
+-- together.  So the mail slots are asserted here as well as the move.
+
+local function gLabels(screen)
+  local out = {}
+  for _, item in ipairs((screen.actions or {}).items or {}) do
+    out[#out + 1] = tostring(item.label)
+  end
+  return table.concat(out, ",")
+end
+
+do
+  io.write("SEND is on the party half of Gold's box popup\n")
+  reset()
+  local save = newSave(0)
+  save.party[1] = mon("BULBASAUR", "STAYS")
+  save.party[2] = mon("CHARMANDER", "GOING")
+  local screen = screenOn(save)
+  screen.pane, screen.partySlot = "party", 2
+
+  screen.actions = nil
+  screen:openActions()
+  eq(gLabels(screen), "STATS,SEND,CANCEL",
+    "a party member's popup carries SEND -- RELEASE and SORT are the box's")
+
+  screen:chooseAction("send")
+  ok(screen.confirm ~= nil and tostring(screen.confirm.text):find("GLOBAL BOX"),
+    "choosing it asks first, the way leaving the team should")
+  eq(screen.confirm.choice, 2, "with NO under the cursor")
+  eq(#save.party, 2, "and nothing has moved while it is asking")
+
+  screen.confirm.onYes()
+  screen.confirm = nil
+  eq(#save.party, 1, "YES takes it out of the party")
+  eq(save.party[1].nickname, "STAYS", "leaving the one that stayed")
+  eq(screen.global:count(), 1, "and it is in the GLOBAL BOX")
+  eq(screen.global:at(1, 1).nickname, "GOING", "as itself, exactly once")
+  eq(#(screen.partyRow or {}), #save.party,
+    "the row list is as long as the party -- not one entry describing a "
+    .. "POKeMON that has left")
+end
+
+do
+  io.write("and the letters behind it move up with it\n")
+  -- sPartyMail is keyed by SLOT.  The POKeMON leaving never holds mail (the
+  -- store refuses one that does), but every letter BEHIND it has to move up
+  -- or each one lands on the wrong POKeMON.  This is the half the old comment
+  -- named as the reason for having no row at all.
+  reset()
+  local save = newSave(0)
+  save.party[1] = mon("BULBASAUR", "FIRST")
+  save.party[2] = mon("CHARMANDER", "GOING")
+  save.party[3] = mon("SQUIRTLE", "THIRD")
+  save.mail = { "to FIRST", "-", "to THIRD" }
+  local screen = screenOn(save)
+  screen.pane, screen.partySlot = "party", 2
+
+  screen.actions = nil
+  screen:openActions()
+  screen:chooseAction("send")
+  screen.confirm.onYes()
+  screen.confirm = nil
+
+  eq(#save.party, 2, "two are left in the party")
+  eq(save.party[2].nickname, "THIRD", "and THIRD has moved up to slot 2")
+  eq(#save.mail, 2, "so has its letter")
+  eq(save.mail[2], "to THIRD",
+    "THIRD's mail is in slot 2 with it, not still in slot 3 behind a POKeMON "
+    .. "that left")
+end
+
+do
+  io.write("the last POKeMON is refused, in the pick-up's own words\n")
+  reset()
+  local save = newSave(0)
+  save.party[1] = mon("BULBASAUR", "ALONE")
+  local screen = screenOn(save)
+  screen.pane, screen.partySlot = "party", 1
+
+  screen.actions = nil
+  screen:openActions()
+  ok(gLabels(screen):find("SEND"), "the row is still offered")
+  screen:chooseAction("send")
+  ok(screen.confirm == nil, "and it does not ask")
+  ok(tostring(screen.message):find("last"),
+    "it says you can't deposit the last POKeMON")
+  eq(#save.party, 1, "the party is untouched")
+  eq(screen.global:count(), 0, "and nothing reached the GLOBAL BOX")
+end
+
 io.write(("\n%d passed, %d failed\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)

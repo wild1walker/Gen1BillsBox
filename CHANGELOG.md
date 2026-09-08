@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.11.0
+
+- **SEND is on the party half of the box screen.** Selecting a party member
+  there offered STATS and CANCEL and nothing else. The row was left off on
+  purpose, and the reason was about the wrong thing: the *party menu's* SEND
+  empties `save.party` directly, which from this screen would leave its own row
+  bookkeeping — and, on Gold, its mail slots — describing a POKéMON that is no
+  longer in the party.
+
+  All true, and a reason for the party half to have **its own** SEND rather
+  than none. This screen already lifts POKéMON out of the party correctly every
+  time the cursor picks one up. So the row makes that same move: the pick-up's
+  own last-POKéMON refusal in the pick-up's own words, the DEPOSITED tail a
+  deposit applies, the mail behind it moved up with it on Gold, and back into
+  the row it came from if the store turns it away.
+
+  It confirms, where the box's SEND does not — inside the box a send is a move
+  between pages, and out of the party it is a POKéMON leaving your team.
+
 ## 1.10.1
 
 - **Moving several POKéMON out of the GLOBAL BOX took the wrong ones, then

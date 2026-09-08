@@ -881,5 +881,108 @@ do
   end
 end
 
+-- ---------------------------------------------- SEND, on the PARTY half too
+--
+-- Reported as "when you select a party member in box send isn't an option",
+-- and the row was left off on purpose.  The reason was real but was about the
+-- party MENU's send, which empties save.party directly and would leave this
+-- screen's partyRow list describing a POKeMON that is not in the party -- the
+-- bookkeeping that keeps the visual order and the BATTLE order the same list.
+--
+-- Which is a reason for the party half to have its OWN send, not for it to
+-- have none: the cursor already lifts POKeMON out of the party correctly, and
+-- `partyTake` is what it calls.  So the row list is asserted here as well as
+-- the move, because that list is the whole of what was being protected.
+
+local function labelsOf(menu)
+  local out = {}
+  for _, item in ipairs(menu and menu.items or {}) do
+    out[#out + 1] = tostring(item.label)
+  end
+  return table.concat(out, ",")
+end
+
+local function rowNamed(menu, want)
+  for _, item in ipairs(menu and menu.items or {}) do
+    if tostring(item.label) == want then return item end
+  end
+  return nil
+end
+
+do
+  io.write("SEND is on the party half of the box popup\n")
+  reset()
+  local save = newSave(0)
+  save.party[1] = mon("BULBASAUR", "STAYS")
+  save.party[2] = mon("CHARMANDER", "GOING")
+  local screen = screenOn(save)
+  screen.pane, screen.partySlot = "party", 2
+
+  menus, said = {}, {}
+  screen:openActions()
+  eq(labelsOf(menus[1]), "STATS,SEND,CANCEL",
+    "a party member's popup carries SEND -- RELEASE and SORT are the box's")
+
+  -- It ASKS, where the box's SEND does not.  Inside the box a send is a move
+  -- between pages; out of the party it is a POKeMON leaving your team, which
+  -- is the same line the party menu's own row draws.
+  rowNamed(menus[1], "SEND").onSelect()
+  ok(said[1] and said[1].text:find("GLOBAL BOX"), "choosing it asks first")
+  ok(said[1] and said[1].opts and said[1].opts.defaultNo,
+    "with NO under the cursor")
+  eq(#save.party, 2, "and nothing has moved while it is asking")
+
+  said[1].opts.choice(true)
+  eq(#save.party, 1, "YES takes it out of the party")
+  eq(save.party[1].nickname, "STAYS", "leaving the one that stayed")
+  eq(screen.global:count(), 1, "and it is in the GLOBAL BOX")
+  eq(screen.global:at(1, 1).nickname, "GOING", "as itself, exactly once")
+  ok(screen.partyTouched, "the party is marked changed, so the screen saves it")
+
+  -- the bookkeeping the row was once left off to protect
+  eq(#(screen.partyRow or {}), #save.party,
+    "and the row list is as long as the party -- not one entry describing a "
+    .. "POKeMON that has left")
+end
+
+do
+  io.write("and NO leaves the party exactly as it was\n")
+  reset()
+  local save = newSave(0)
+  save.party[1] = mon("BULBASAUR", "STAYS")
+  save.party[2] = mon("CHARMANDER", "GOING")
+  local screen = screenOn(save)
+  screen.pane, screen.partySlot = "party", 2
+
+  menus, said = {}, {}
+  screen:openActions()
+  rowNamed(menus[1], "SEND").onSelect()
+  said[1].opts.choice(false)
+  eq(#save.party, 2, "both are still in the party")
+  eq(screen.global:count(), 0, "and the GLOBAL BOX is empty")
+end
+
+do
+  io.write("the last POKeMON is refused, in the pick-up's own words\n")
+  reset()
+  local save = newSave(0)
+  save.party[1] = mon("BULBASAUR", "ALONE")
+  local screen = screenOn(save)
+  screen.pane, screen.partySlot = "party", 1
+
+  menus, said = {}, {}
+  screen:openActions()
+  ok(rowNamed(menus[1], "SEND") ~= nil,
+    "the row is still offered -- the party menu's is too, and refusing on the "
+    .. "press is where the sentence can be said")
+  rowNamed(menus[1], "SEND").onSelect()
+  ok(said[1] and said[1].text:find("last"),
+    "and pressing it says you can't deposit the last POKeMON")
+  ok(not (said[1].opts and said[1].opts.choice),
+    "with no question attached -- it is a refusal, not an offer")
+  eq(#save.party, 1, "the party is untouched")
+  eq(screen.global:count(), 0, "and nothing reached the GLOBAL BOX")
+end
+
 io.write(("\n%d passed, %d failed\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
