@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.12.0
+
+- **A POKéMON taken out of the GLOBAL BOX is registered in the POKéDEX.**
+  Reported as "moving things with box does not update dex". One out of the
+  shared box may have been caught by a cartridge this save has never met, so
+  until it is registered the dex is wrong about a POKéMON sitting in this
+  save's own storage. The engine already had the rule and it is the link
+  trade's (`src/link/Protocol.lua`): received from another game means **seen**
+  and **owned**. Both generations keep the dex the same way, so there is
+  nothing to branch on; a save with no dex table is left alone rather than
+  given one.
+
 ## 1.11.1
 
 - **The Gen 2 page suite's MAIL stub, made faithful.** No shipped behaviour

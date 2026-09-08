@@ -163,6 +163,34 @@ return function(mod, GlobalBox)
     return out
   end
 
+  -- ------- and the POKeDEX learns about it
+  --
+  -- Reported as "moving things with box does not update dex".  A POKeMON
+  -- taken out of the GLOBAL BOX may have been caught by a cartridge this save
+  -- has never met, so it arrives owned by a TRAINER this game has no record
+  -- of -- and until it is registered, the dex is wrong about a POKeMON now
+  -- sitting in this save's own storage.
+  --
+  -- The engine already has the rule for exactly this, and it is the LINK
+  -- TRADE's (src/link/Protocol.lua:693): a POKeMON received from another game
+  -- is marked SEEN and OWNED on arrival.  The GLOBAL BOX is a trade with the
+  -- other trainer not in the room, so it is the same two lines.
+  --
+  -- Both generations keep the dex the same way -- `save.pokedex.seen` and
+  -- `.owned`, keyed by species -- so there is nothing to branch on.  A save
+  -- with no dex table at all (a very early game) is left alone rather than
+  -- given one.
+  local function registerReceived(game, mon)
+    local dex = game and game.save and game.save.pokedex
+    local species = type(mon) == "table" and mon.species or nil
+    if not (type(dex) == "table" and species ~= nil) then return false end
+    if type(dex.seen) == "table" then dex.seen[species] = true end
+    if type(dex.owned) == "table" then dex.owned[species] = true end
+    return true
+  end
+
+  Pane.registerReceived = registerReceived
+
   -- Whether this game could take a stored POKeMON out, without taking it out.
   -- The box screen asks before it draws a cell as one you can pick up, and the
   -- refusal it answers with is the Time Capsule's own.
@@ -305,6 +333,9 @@ return function(mod, GlobalBox)
                                          page, cell)
     if type(ticket) ~= "table" then return nil, tostring(ticket or "empty_cell") end
     self:refresh()
+    -- It is in this save now.  See registerReceived: the same two lines a
+    -- link trade writes when a POKeMON arrives from another game.
+    registerReceived(game, mon)
     return mon, ticket
   end
 

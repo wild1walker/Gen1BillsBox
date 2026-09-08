@@ -984,5 +984,43 @@ do
   eq(screen.global:count(), 0, "and nothing reached the GLOBAL BOX")
 end
 
+-- ------------------------------------------- and the POKeDEX hears about it
+--
+-- Reported as "moving things with box does not update dex".  A POKeMON out of
+-- the GLOBAL BOX may have been caught by a cartridge this save has never met;
+-- until it is registered the dex is wrong about a POKeMON in this save's own
+-- storage.  The engine already has the rule, and it is the link trade's
+-- (src/link/Protocol.lua): received from another game means SEEN and OWNED.
+
+do
+  io.write("a POKeMON out of the GLOBAL BOX is registered in the dex\n")
+  reset()
+  otherCartHolding(mon("PIKACHU", "SPARK"))
+  local save = newSave(1)
+  save.pokedex = { seen = {}, owned = {} }
+  local screen = screenOn(save)
+  screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 1
+
+  ok(not save.pokedex.owned.PIKACHU, "this save has never owned one")
+  screen:grab()
+  ok(screen.held ~= nil, "it comes out of the shared box")
+  ok(save.pokedex.seen.PIKACHU, "and the dex has it as SEEN")
+  ok(save.pokedex.owned.PIKACHU, "and as OWNED, the way a trade does it")
+end
+
+do
+  io.write("and a save with no dex at all is left alone\n")
+  reset()
+  otherCartHolding(mon("PIKACHU", "SPARK"))
+  local save = newSave(1)
+  save.pokedex = nil
+  local screen = screenOn(save)
+  screen.pane, screen.globalPage, screen.boxSlot = "box", 1, 1
+  local okCall = pcall(function() screen:grab() end)
+  ok(okCall, "taking one does not raise")
+  ok(screen.held ~= nil, "and it still comes out")
+  ok(save.pokedex == nil, "no dex is invented for a save that has none")
+end
+
 io.write(("\n%d passed, %d failed\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
